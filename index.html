@@ -1382,14 +1382,13 @@ function rconsol() {
   const pre = vagasVisiveis.reduce((sum, v) => sum + v.posicoes.filter(p => p.status === 'Preenchida').length, 0);
   const con = vagasVisiveis.reduce((sum, v) => sum + v.posicoes.filter(p => p.status === 'Congelada').length, 0);
 
-  // Paginação das vagas preenchidas
+  // Paginação das vagas preenchidas (já usa vagasVisiveis)
   const vagasPreenchidas = vagasVisiveis.filter(v => v.posicoes.some(p => p.status === 'Preenchida'));
   const totalPaginas = Math.ceil(vagasPreenchidas.length / 10);
   if (paginaVagasPreenchidas > totalPaginas) paginaVagasPreenchidas = totalPaginas || 1;
   const inicio = (paginaVagasPreenchidas - 1) * 10;
   const vagasPagina = vagasPreenchidas.slice(inicio, inicio + 10);
 
-  // Geração dos botões de página
   let botoesPagina = '';
   for (let i = 1; i <= totalPaginas; i++) {
     botoesPagina += `<button class="${i === paginaVagasPreenchidas ? 'active' : ''}" onclick="irParaPaginaVagasPreenchidas(${i})">${i}</button>`;
@@ -1405,8 +1404,8 @@ function rconsol() {
   </div>
   <div class="card">
     <div class="card-title">Candidatos por etapa</div>
-    ${ETAPAS.map(e => { const n = cands.filter(c => c.etapa === e).length; return `<div class="stat-row"><span class="pill ${eclsf(e)}">${e}</span><span class="stat-num">${n}</span></div>`; }).join('')}
-    <div style="display:flex;justify-content:space-between;padding-top:10px;font-size:13px;font-weight:500"><span>Total</span><span style="font-family:'DM Mono',monospace">${cands.length}</span></div>
+    ${ETAPAS.map(e => { const n = candsVisiveis.filter(c => c.etapa === e).length; return `<div class="stat-row"><span class="pill ${eclsf(e)}">${e}</span><span class="stat-num">${n}</span></div>`; }).join('')}
+    <div style="display:flex;justify-content:space-between;padding-top:10px;font-size:13px;font-weight:500"><span>Total</span><span style="font-family:'DM Mono',monospace">${candsVisiveis.length}</span></div>
   </div>
 </div>
 <div class="card" style="margin-bottom:1.25rem">
@@ -1418,7 +1417,7 @@ function rconsol() {
   ${totalPaginas > 1 ? `<div class="pagination">${botoesPagina}</div>` : ''}
 </div>
 <div class="card"><div class="card-title">Candidatos contratados</div><div class="tbl-wrap" style="margin-top:.75rem"><table><thead><tr><th>ID</th><th>Candidato</th><th>Vaga</th><th>Telefone</th><th>Email</th><th>Obs</th></tr></thead><tbody>
-  ${cands.filter(c=>c.etapa==='Contratado').length===0?`<tr><td colspan="6"><div class="empty">Nenhum</div></td></tr>`:cands.filter(c=>c.etapa==='Contratado').map(c=>{const v=vagas.find(vv=>vv.id===c.vid);return`<tr><td>${ec(c.id)}</td><td><div style="display:flex;align-items:center;gap:7px"><div class="avatar" style="width:24px;height:24px;border-radius:6px;font-size:10px;background:${avbg(c.nome)};color:${avtx(c.nome)}">${initials(c.nome)}</div>${ec(c.nome)}</div></td><td>${ec(c.vid)}${v?` – ${ec(v.cargo)}`:''}</td><td>${formatTel(c.tel)}</td><td>${ec(c.email)}</td><td>${ec(c.obs)}</td></tr>`;}).join('')}
+  ${candsVisiveis.filter(c=>c.etapa==='Contratado').length===0?`<tr><td colspan="6"><div class="empty">Nenhum</div></td></tr>`:candsVisiveis.filter(c=>c.etapa==='Contratado').map(c=>{const v=vagasVisiveis.find(vv=>vv.id===c.vid);return`<tr><td>${ec(c.id)}</td><td><div style="display:flex;align-items:center;gap:7px"><div class="avatar" style="width:24px;height:24px;border-radius:6px;font-size:10px;background:${avbg(c.nome)};color:${avtx(c.nome)}">${initials(c.nome)}</div>${ec(c.nome)}</div></td><td>${ec(c.vid)}${v?` – ${ec(v.cargo)}`:''}</td><td>${formatTel(c.tel)}</td><td>${ec(c.email)}</td><td>${ec(c.obs)}</td></tr>`;}).join('')}
 </tbody></table></div></div>`;
 }
 
@@ -1562,6 +1561,12 @@ function verDetalhesSolicitacao(id) {
               ${sol.criterios.map(c => `<span class="pill" style="background:#E6F1FB;color:#0C447C;">${ec(c)}</span>`).join('')}
             </div>
           </div>` : ''}
+          ${sol.perguntas && sol.perguntas.length > 0 ? `
+          <div><strong>Perguntas adicionais:</strong>
+            <ul style="margin-top:4px;padding-left:20px;">
+              ${sol.perguntas.map(p => `<li style="margin-bottom:4px;">${ec(p)}</li>`).join('')}
+            </ul>
+          </div>` : ''}
         </div>
         <div class="modal-acts">
           <button class="btn-sec" onclick="document.getElementById('gmodal').style.display='none'">Fechar</button>
@@ -1590,7 +1595,7 @@ async function criarVagaDeSolicitacao(solId) {
     obs: `Solicitação de ${(() => {
       const user = USERS.find(u => u.email === sol.solicitante);
       return user ? user.name : (sol.solicitante?.split('@')[0] || 'Gestor');
-    })()}. ${sol.obs || ''}`,
+    })()}. ${sol.obs || ''}${sol.perguntas?.length ? '\n\nPerguntas adicionais:\n' + sol.perguntas.map(p => '• ' + p).join('\n') : ''}`,
     criterios: [],
     posicoes,
     qtd: posicoes.length,
@@ -2242,6 +2247,18 @@ function showSolicitarVagaModal() {
           <div class="fg"><label>Quantidade</label><input type="number" id="sol-qtd" min="1" value="1"></div>
           <div class="fg"><label>Prioridade</label><select id="sol-pri">${PRIS.map(p => `<option>${p}</option>`).join('')}</select></div>
           <div class="fg full"><label>Observações</label><textarea id="sol-obs" placeholder="Descreva o motivo da solicitação..."></textarea></div>
+
+          <!-- Perguntas adicionais (NOVO) -->
+          <div class="fg full" style="margin-top:8px;">
+            <label>Perguntas adicionais</label>
+            <div style="display:flex;gap:8px;">
+              <input type="text" id="sol-pergunta-txt" placeholder="Digite uma pergunta para a entrevista...">
+              <button type="button" class="btn-sec" onclick="adicionarPerguntaSol()" style="white-space:nowrap;"><i class="ti ti-plus"></i> Adicionar</button>
+            </div>
+            <ul id="sol-perguntas-lista" style="list-style:none;display:flex;flex-direction:column;gap:6px;margin-top:8px;"></ul>
+            <input type="hidden" id="sol-perguntas-hidden" value="">
+          </div>
+
           <div class="fg full" style="margin-top:8px;">
             <label>Critérios</label>
             <div style="display:flex;gap:8px;">
@@ -2284,9 +2301,34 @@ function removerCriterioSol(index) {
   lista.innerHTML = criterios.map((c, i) => `<li class="pill" style="background:#E6F1FB;color:#0C447C;display:flex;align-items:center;gap:6px;">${ec(c)} <button type="button" class="ibtn" style="font-size:12px;padding:0;color:#0C447C;" onclick="removerCriterioSol(${i})"><i class="ti ti-x"></i></button></li>`).join('');
 }
 
+function adicionarPerguntaSol() {
+  const input = document.getElementById('sol-pergunta-txt');
+  const valor = input.value.trim();
+  if (!valor) return;
+  const hidden = document.getElementById('sol-perguntas-hidden');
+  const lista = document.getElementById('sol-perguntas-lista');
+  const perguntas = hidden.value ? hidden.value.split('||') : [];
+  perguntas.push(valor);
+  hidden.value = perguntas.join('||');
+  lista.innerHTML = perguntas.map((p, i) => `<li class="pill" style="background:#FFF3E0;color:#E65100;display:flex;align-items:center;gap:6px;">${ec(p)} <button type="button" class="ibtn" style="font-size:12px;padding:0;color:#E65100;" onclick="removerPerguntaSol(${i})"><i class="ti ti-x"></i></button></li>`).join('');
+  input.value = '';
+}
+
+function removerPerguntaSol(index) {
+  const hidden = document.getElementById('sol-perguntas-hidden');
+  const perguntas = hidden.value ? hidden.value.split('||') : [];
+  perguntas.splice(index, 1);
+  hidden.value = perguntas.join('||');
+  const lista = document.getElementById('sol-perguntas-lista');
+  lista.innerHTML = perguntas.map((p, i) => `<li class="pill" style="background:#FFF3E0;color:#E65100;display:flex;align-items:center;gap:6px;">${ec(p)} <button type="button" class="ibtn" style="font-size:12px;padding:0;color:#E65100;" onclick="removerPerguntaSol(${i})"><i class="ti ti-x"></i></button></li>`).join('');
+}
+
 async function solicitarVaga() {
   const cargo = document.getElementById('sol-cargo').value.trim();
   if (!cargo) { showAlert('Preencha o cargo.'); return; }
+
+  const perguntasHidden = document.getElementById('sol-perguntas-hidden');
+  const perguntas = perguntasHidden ? (perguntasHidden.value ? perguntasHidden.value.split('||') : []) : [];
 
   const criteriosHidden = document.getElementById('sol-criterios-hidden');
   const criterios = criteriosHidden ? (criteriosHidden.value ? criteriosHidden.value.split('||') : []) : [];
@@ -2299,6 +2341,7 @@ async function solicitarVaga() {
     pri: document.getElementById('sol-pri').value,
     obs: document.getElementById('sol-obs').value,
     criterios: criterios,
+    perguntas: perguntas,
     solicitante: currentUser?.email || 'Desconhecido',
     data: new Date().toISOString(),
     status: 'Pendente',
