@@ -315,6 +315,14 @@ textarea { resize: vertical; min-height: 70px; }
 .vaga-card { background: var(--surf); border: 0.5px solid var(--border); border-radius: var(--r2); padding: 1.25rem; cursor: pointer; transition: box-shadow 0.2s; }
 .vaga-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
 
+.modal input:disabled,
+.modal select:disabled,
+.modal textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.7; /* opcional: deixa visualmente mais claro que está desabilitado */
+}
+
+
 /* ===== MODAL DE CONFIRMAÇÃO/ALERTA (NOVO) ===== */
 .alert-modal {
   background: var(--surf);
@@ -508,10 +516,31 @@ db.enablePersistence().catch(() => {});
 
 // ========== USUÁRIOS PERMITIDOS ==========
 const USERS = [
-  { name: 'Kamila', email: 'kamila@santorini.com' },
-  { name: 'Natália', email: 'natalia@santorini.com' }
+  { name: 'Kamila', email: 'kamila@santorini.com', role: 'RH' },
+  { name: 'Natália', email: 'natalia@santorini.com', role: 'RH' },
+  { name: 'César', email: 'cesar@santorini.com', role: 'Gestor' },
+  { name: 'Daniela', email: 'daniela@santorini.com', role: 'Gestor' },
+  { name: 'Nayara', email: 'nayara@santorini.com', role: 'Gestor' },
+  // Kamila também pode ser gestora? Se quiser que ela acesse como gestora, adicione:
+  // { name: 'Kamila', email: 'kamila@santorini.com', role: 'Gestor' }, 
+  // mas o ideal seria usar outro email para não conflitar. Vou manter só como RH.
 ];
 let currentUser = null;
+let userProfile = 'RH';
+
+
+// ========== FILTRO POR PERFIL ==========
+function getVisibleVagas() {
+  if (userProfile === 'Gestor' && currentUser) {
+    return vagas.filter(v => v.solicitanteEmail === currentUser.email);
+  }
+  return vagas; // RH vê todas
+}
+
+function getVisibleCands() {
+  const vids = getVisibleVagas().map(v => v.id);
+  return cands.filter(c => vids.includes(c.vid));
+}
 
 // ========== DADOS ==========
 const ETAPAS = ['Triagem', 'Teste lógico','Entrevista RH','Entrevista Técnica','Entrevista Gestor','Proposta','Admissão','Contratado','Reprovado'];
@@ -530,12 +559,15 @@ let _preSelectedVid = null;
 let candSubTab = 'porVaga'; // 'porVaga' ou 'total'
 let paginaVagasPreenchidas = 1;
 let vagaDash = '';
+let solicSubTab = 'criadas'; // 'criadas' ou 'solicitacoes'
+let solicitacoes = []; // armazena as solicitações dos gestores
 
 // ========== FIREBASE DATA ==========
 async function loadDataFromFirestore() {
-  const [vSnap, cSnap] = await Promise.all([
+  const [vSnap, cSnap, sSnap] = await Promise.all([
     db.collection('vagas').get(),
-    db.collection('candidatos').get()
+    db.collection('candidatos').get(),
+    db.collection('solicitacoes_vaga').get()
   ]);
   vagas = vSnap.docs.map(doc => {
     const data = doc.data();
@@ -543,7 +575,7 @@ async function loadDataFromFirestore() {
       data.posicoes = Array.from({ length: data.qtd || 1 }, (_, i) => ({ num: i + 1, status: data.status || 'Aberta' }));
       data.qtd = data.posicoes.length;
     }
-    if (!data.criterios) data.criterios = []; // novo campo
+    if (!data.criterios) data.criterios = [];
     return { ...data, id: doc.id };
   });
   cands = cSnap.docs.map(doc => {
@@ -551,6 +583,7 @@ async function loadDataFromFirestore() {
     if (!data.justificativa) data.justificativa = null;
     return { ...data, id: doc.id };
   });
+  solicitacoes = sSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
   saveToLocalStorage();
 }
 // (save/delete funções mantidas)
@@ -558,6 +591,7 @@ async function saveVagaToFirestore(vaga) { await db.collection('vagas').doc(vaga
 async function deleteVagaFromFirestore(id) { await db.collection('vagas').doc(id).delete(); saveToLocalStorage(); }
 async function saveCandToFirestore(cand) { await db.collection('candidatos').doc(cand.id).set(cand); saveToLocalStorage(); }
 async function deleteCandFromFirestore(id) { await db.collection('candidatos').doc(id).delete(); saveToLocalStorage(); }
+async function deleteSolicitacaoFromFirestore(id) {await db.collection('solicitacoes_vaga').doc(id).delete();solicitacoes = solicitacoes.filter(s => s.id !== id);}
 
 // ========== LOCAL STORAGE ==========
 function saveToLocalStorage() {
@@ -717,6 +751,7 @@ function nav(p) {
   //if (p !== 'consolidado') paginaVagasPreenchidas = 1; //reseta paginação ao sair do consolidado
   //if (p === 'candidatos') candSubTab = 'porVaga'; // reseta ao entrar na aba
   fv = ''; fs = ''; fe = ''; fvc = '';
+  solicSubTab = 'criadas';
   vagaDash = '';
   document.querySelectorAll('.nav-btn').forEach((b, i) => b.classList.toggle('active', ['dashboard','vagas','candidatos','consolidado'][i] === p));
   render();
@@ -766,20 +801,23 @@ function render() {
 const etapaColors = { 'Triagem':'#7F77DD','Teste lógico':'#678091' ,'Entrevista RH':'#4f8ef7', 'Entrevista Técnica':'#EF9F27', 'Entrevista Gestor':'#f720f4', 'Proposta':'#1D9E75','Admissão':'#065F46' ,'Contratado':'#639922', 'Reprovado':'#E24B4A' };
 
 function rdash() {
-  const totalVagas = vagas.length;
+  const vagasVisiveis = getVisibleVagas();
+  const candsVisiveis = getVisibleCands();
+
+  const totalVagas = vagasVisiveis.length;
   const byStatus = { Aberta: 0, 'Em Andamento': 0, Preenchida: 0, Congelada: 0 };
-  vagas.forEach(v => { if (byStatus.hasOwnProperty(v.status)) byStatus[v.status]++; });
+  vagasVisiveis.forEach(v => { if (byStatus.hasOwnProperty(v.status)) byStatus[v.status]++; });
   const vagasAbertas = byStatus['Aberta'];
   const vagasPreenchidas = byStatus['Preenchida'];
-  const totalCands = cands.length;
-  const candsContratados = cands.filter(c => c.etapa === 'Contratado').length;
+  const totalCands = candsVisiveis.length;
+  const candsContratados = candsVisiveis.filter(c => c.etapa === 'Contratado').length;
 
   const byEtapa = {};
-  ETAPAS.forEach(e => byEtapa[e] = cands.filter(c => c.etapa === e).length);
+  ETAPAS.forEach(e => byEtapa[e] = candsVisiveis.filter(c => c.etapa === e).length);
 
   const statusColors = { 'Aberta':'#4f8ef7', 'Em Andamento':'#EF9F27', 'Preenchida':'#639922', 'Congelada':'#7A8B9E' };
 
-  const recentes = cands.slice(-4).reverse();
+  const recentes = candsVisiveis.slice(-4).reverse();
 
   return `
 <div class="page-header" style="margin-bottom:1rem"><h2>Dashboard</h2><p>Visão geral em tempo real</p></div>
@@ -821,13 +859,13 @@ function rdash() {
   <div class="card-title">📈 Análise por Vaga</div>
   <select class="fi" onchange="vagaDash=this.value;renderP()" style="max-width:300px;margin-bottom:1rem;">
     <option value="">Selecione uma vaga...</option>
-    ${vagas.filter(v => v.status !== 'Preenchida').map(v => `<option value="${v.id}" ${vagaDash === v.id ? 'selected' : ''}>${v.id} – ${ec(v.cargo)}</option>`).join('')}
+    ${vagasVisiveis.filter(v => v.status !== 'Preenchida').map(v => `<option value="${v.id}" ${vagaDash === v.id ? 'selected' : ''}>${v.id} – ${ec(v.cargo)}</option>`).join('')}
   </select>
   ${(() => {
     if (!vagaDash) return '<div class="empty">Selecione uma vaga para visualizar os dados.</div>';
-    const vagaSel = vagas.find(v => v.id === vagaDash);
+    const vagaSel = vagasVisiveis.find(v => v.id === vagaDash);
     if (!vagaSel) return '';
-    const candsVaga = cands.filter(c => c.vid === vagaSel.id);
+    const candsVaga = getVisibleCands().filter(c => c.vid === vagaSel.id);
     const byEtapaVaga = {};
     ETAPAS.forEach(e => byEtapaVaga[e] = candsVaga.filter(c => c.etapa === e).length);
     const medias = calcularTempoMedioPorEtapa(vagaDash);
@@ -868,14 +906,14 @@ function rdash() {
     }).join('')}</div>
   </div>
   <div class="activity-card">
-    <div class="activity-title">⚡ Ações Rápidas</div>
-    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
-      <button class="btn-pill" onclick="nav('vagas');openM('vaga')"><i class="ti ti-plus"></i> Criar nova vaga</button>
-      <button class="btn-pill" onclick="nav('candidatos')"><i class="ti ti-user-plus"></i> Adicionar candidato</button>
-      <button class="btn-pill" onclick="nav('consolidado')"><i class="ti ti-chart-pie"></i> Ver consolidado</button>
-    </div>
-    <div style="margin-top:1rem;padding-top:0.8rem;border-top:0.5px solid var(--border);font-size:11px;color:var(--tx3)"><i class="ti ti-database"></i> Dados salvos automaticamente</div>
+  <div class="activity-title">⚡ Ações Rápidas</div>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+    ${userProfile === 'RH' ? `<button class="btn-pill" onclick="nav('vagas');openM('vaga')"><i class="ti ti-plus"></i> Criar nova vaga</button>` : ''}
+    ${userProfile === 'RH' ? `<button class="btn-pill" onclick="nav('candidatos')"><i class="ti ti-user-plus"></i> Adicionar candidato</button>` : ''}
+    ${userProfile === 'Gestor' ? `<button class="btn-pill" style="background:#4f8ef7;color:#fff;" onclick="showSolicitarVagaModal()"><i class="ti ti-clipboard-list"></i> Solicitar vaga</button>` : ''}
+    <button class="btn-pill" onclick="nav('consolidado')"><i class="ti ti-chart-pie"></i> Ver consolidado</button>
   </div>
+  <div style="margin-top:1rem;padding-top:0.8rem;border-top:0.5px solid var(--border);font-size:11px;color:var(--tx3)"><i class="ti ti-database"></i> Dados salvos automaticamente</div>
 </div>
 <!-- BOTÕES DE IMPORTAÇÃO/EXPORTAÇÃO -->
 <div class="card" style="margin-top:1.25rem">
@@ -1022,50 +1060,83 @@ function gerarGraficoJustificativas(vid) {
 
 // ========== ABA VAGAS ==========
 function rvagas() {
-  const vagasAbertas = vagas.filter(v => v.status === 'Aberta' || v.status === 'Em Andamento');
-  let filt = vagas.filter(v => (!fs || v.status === fs) && (!fv || v.cargo.toLowerCase().includes(fv.toLowerCase()) || v.id.toLowerCase().includes(fv.toLowerCase())));
+  if (userProfile === 'RH') {
+    // ===== SUBABAS PARA RH (inalterado) =====
+    const subnav = `
+      <div class="subtab-nav" style="margin-bottom:1rem;">
+        <button class="subtab-btn ${solicSubTab === 'criadas' ? 'active' : ''}" onclick="switchSolicSubTab('criadas')">
+          <i class="ti ti-briefcase"></i> Vagas criadas
+        </button>
+        <button class="subtab-btn ${solicSubTab === 'solicitacoes' ? 'active' : ''}" onclick="switchSolicSubTab('solicitacoes')" style="position:relative;">
+          <i class="ti ti-clipboard-list"></i> Solicitações de vagas
+          ${solicitacoes.length > 0 ? `<span style="position:absolute; top:-6px; right:-6px; background:#E24B4A; color:#fff; border-radius:50%; width:18px; height:18px; font-size:10px; display:flex; align-items:center; justify-content:center; font-weight:600;">${solicitacoes.length}</span>` : ''}
+        </button>
+      </div>`;
 
-  const tabelaTodas = (lista) => lista.length === 0
-    ? '<tr><td colspan="9"><div class="empty">Nenhuma vaga encontrada</div></td></tr>'
-    : lista.map(v => {
-        const total = v.posicoes.length;
-        return `<tr>
-          <td><span class="td-id" style="color:#4f8ef7">${ec(v.id)}</span></td>
-          <td class="td-texto title="${ec(v.cargo)}">${ec(v.cargo)}</td>
-          <td title="${ec(v.empresa)}">${ec(v.empresa)}</td>
-          <td title="${ec(v.local)}">${ec(v.local)}</td>
-          <td style="font-size:12px;color:var(--tx2)">${v.data}</td>
-          <td style="text-align:center;font-family:'DM Mono',monospace">${total}</td>
-          <td><span class="pill ${pcls(v.pri)}">${v.pri}</span></td>
-          <td><span class="pill ${scls(v.status)}">${v.status}</span></td>
-          <td><div class="act-row">
-            <button class="ibtn" title="Editar" onclick="editV('${ec(v.id)}')"><i class="ti ti-pencil"></i></button>
-            <button class="ibtn danger" title="Remover" onclick="delV('${ec(v.id)}')"><i class="ti ti-trash"></i></button>
-          </div></td>
-        </tr>`;
-      }).join('');
+    let content = '';
+    if (solicSubTab === 'criadas') {
+      content = rVagasCriadas();
+    } else {
+      content = rSolicitacoesVagas();
+    }
 
-  const tabelaAbertas = (lista) => lista.length === 0
-    ? '<tr><td colspan="7"><div class="empty">Nenhuma vaga aberta no momento</div></td></tr>'
-    : lista.map(v => {
-        const abertas = v.posicoes.filter(p => p.status === 'Aberta').length;
-        const total = v.posicoes.length;
-        return `<tr>
-          <td><span class="td-id" style="color:#4f8ef7">${ec(v.id)}</span></td>
-          <td class="td-texto title="${ec(v.cargo)}">${ec(v.cargo)}</td>
-          <td title="${ec(v.empresa)}">${ec(v.empresa)}</td>
-          <td title="${ec(v.local)}">${ec(v.local)}</td>
-          <td style="text-align:center;font-family:'DM Mono',monospace">${abertas}/${total}</td>
-          <td><span class="pill ${pcls(v.pri)}">${v.pri}</span></td>
-          <td><span class="pill ${scls(v.status)}">${v.status}</span></td>
-        </tr>`;
-      }).join('');
-
-  return `
+    return `
 <div class="section-hdr">
   <div style="display:flex;align-items:center"><h2>Vagas</h2><span class="cnt">${vagas.length}</span></div>
   <button class="btn-sec" onclick="exportVagasCSV()"><i class="ti ti-download"></i> Exportar Excel</button>
   <button class="btn-add" onclick="openM('vaga')"><i class="ti ti-plus"></i>Nova Vaga</button>
+</div>
+${subnav}
+${content}
+${modal === 'vaga' ? mVaga() : ''}`;
+  } else {
+    // ===== VISUALIZAÇÃO PARA GESTOR (FILTRADA POR SOLICITANTE) =====
+    const vagasVisiveis = getVisibleVagas(); // Apenas vagas solicitadas pelo gestor logado
+    const vagasAbertas = vagasVisiveis.filter(v => v.status === 'Aberta' || v.status === 'Em Andamento');
+    let filt = vagasVisiveis.filter(v => (!fs || v.status === fs) && (!fv || v.cargo.toLowerCase().includes(fv.toLowerCase()) || v.id.toLowerCase().includes(fv.toLowerCase())));
+
+    const tabelaTodas = (lista) => lista.length === 0
+      ? '<tr><td colspan="10"><div class="empty">Nenhuma vaga encontrada</div></td></tr>' // +1 coluna (Solicitante)
+      : lista.map(v => {
+          const total = v.posicoes.length;
+          const nomeSolicitante = v.solicitanteEmail ? (USERS.find(u => u.email === v.solicitanteEmail)?.name || v.solicitanteEmail) : '—';
+          return `<tr>
+            <td><span class="td-id" style="color:#4f8ef7">${ec(v.id)}</span></td>
+            <td class="td-texto" title="${ec(v.cargo)}">${ec(v.cargo)}</td>
+            <td title="${ec(v.empresa)}">${ec(v.empresa)}</td>
+            <td title="${ec(v.local)}">${ec(v.local)}</td>
+            <td style="font-size:12px;color:var(--tx2)">${v.data}</td>
+            <td style="text-align:center;font-family:'DM Mono',monospace">${total}</td>
+            <td><span class="pill ${pcls(v.pri)}">${v.pri}</span></td>
+            <td><span class="pill ${scls(v.status)}">${v.status}</span></td>
+            <td style="font-size:12px;color:var(--tx2)">${ec(nomeSolicitante)}</td>
+            <td><div class="act-row">
+              <button class="ibtn" title="Visualizar" onclick="editV('${ec(v.id)}')"><i class="ti ti-pencil"></i></button>
+            </div></td>
+          </tr>`;
+        }).join('');
+
+    const tabelaAbertas = (lista) => lista.length === 0
+      ? '<tr><td colspan="7"><div class="empty">Nenhuma vaga aberta no momento</div></td></tr>'
+      : lista.map(v => {
+          const abertas = v.posicoes.filter(p => p.status === 'Aberta').length;
+          const total = v.posicoes.length;
+          return `<tr>
+            <td><span class="td-id" style="color:#4f8ef7">${ec(v.id)}</span></td>
+            <td class="td-texto" title="${ec(v.cargo)}">${ec(v.cargo)}</td>
+            <td title="${ec(v.empresa)}">${ec(v.empresa)}</td>
+            <td title="${ec(v.local)}">${ec(v.local)}</td>
+            <td style="text-align:center;font-family:'DM Mono',monospace">${abertas}/${total}</td>
+            <td><span class="pill ${pcls(v.pri)}">${v.pri}</span></td>
+            <td><span class="pill ${scls(v.status)}">${v.status}</span></td>
+          </tr>`;
+        }).join('');
+
+    return `
+<div class="section-hdr">
+  <div style="display:flex;align-items:center"><h2>Vagas</h2><span class="cnt">${vagasVisiveis.length}</span></div>
+  <button class="btn-sec" onclick="exportVagasCSV()"><i class="ti ti-download"></i> Exportar Excel</button>
+  ${userProfile === 'Gestor' ? `<button class="btn-add" style="background:#4f8ef7;" onclick="showSolicitarVagaModal()"><i class="ti ti-clipboard-list"></i> Solicitar vaga</button>` : ''}
 </div>
 <div class="filters">
   <input class="fi" placeholder="Buscar cargo, ID, empresa..." value="${ec(fv)}" onchange="fv=this.value;renderP()">
@@ -1075,9 +1146,9 @@ function rvagas() {
   </select>
 </div>
 <div class="card" style="margin-bottom:1.5rem">
-  <div class="card-title">📋 Todas as Vagas Cadastradas</div>
+  <div class="card-title">📋 Minhas Vagas Cadastradas</div>
   <div class="tbl-wrap"><table><thead><tr>
-    <th>ID</th><th>Cargo</th><th>Empresa</th><th>Local</th><th>Abertura</th><th>Vagas</th><th>Priorid.</th><th>Status</th><th>Ações</th>
+    <th>ID</th><th>Cargo</th><th>Empresa</th><th>Local</th><th>Abertura</th><th>Vagas</th><th>Priorid.</th><th>Status</th><th>Solicitante</th><th>Ações</th>
   </tr></thead><tbody>${tabelaTodas(filt)}</tbody></table></div>
 </div>
 <div class="card">
@@ -1087,6 +1158,7 @@ function rvagas() {
   </tr></thead><tbody>${tabelaAbertas(vagasAbertas)}</tbody></table></div>
 </div>
 ${modal === 'vaga' ? mVaga() : ''}`;
+  }
 }
 
 function rcands() {
@@ -1111,7 +1183,7 @@ function rcands() {
 <div class="section-hdr">
   <div style="display:flex;align-items:center"><h2>Candidatos</h2><span class="cnt">${cands.length}</span></div>
   <button class="btn-sec" onclick="exportCandsCSV()"><i class="ti ti-download"></i> Exportar Excel</button>
-  <button class="btn-add" onclick="openM('cand')"><i class="ti ti-plus"></i>Novo Candidato</button>
+  ${userProfile === 'RH' ? `<button class="btn-add" onclick="openM('cand')"><i class="ti ti-plus"></i>Novo Candidato</button>` : ''}
 </div>
 ${subnav}
 ${content}
@@ -1127,7 +1199,9 @@ function switchCandSubTab(sub) {
 function rcandsPorVaga() {
   const busca = fv.toLowerCase();
   const statusFiltro = fs;
-  let vagasFiltradas = vagas;
+  const vagasVisiveis = getVisibleVagas();
+
+  let vagasFiltradas = vagasVisiveis;
   if (busca) {
     vagasFiltradas = vagasFiltradas.filter(v => 
       v.cargo.toLowerCase().includes(busca) || v.id.toLowerCase().includes(busca)
@@ -1178,7 +1252,9 @@ function rcandsPorVaga() {
 function rcandsTotal() {
   const busca = fv.toLowerCase();
   const etapaFiltro = fe;
-  let filtrados = cands.filter(c => {
+  const candsVisiveis = getVisibleCands();
+
+  let filtrados = candsVisiveis.filter(c => {
     const matchBusca = !busca || c.nome.toLowerCase().includes(busca) || c.id.toLowerCase().includes(busca);
     const matchEtapa = !etapaFiltro || c.etapa === etapaFiltro;
     return matchBusca && matchEtapa;
@@ -1297,14 +1373,17 @@ function filtrarCandidatosNaVaga() {
 function novoCandParaVaga(vid) { _preSelectedVid = vid; eid = null; modal = 'cand'; renderP(); }
 
 function rconsol() {
-  const totalPosicoes = vagas.reduce((sum, v) => sum + v.posicoes.length, 0);
-  const ab = vagas.reduce((sum, v) => sum + v.posicoes.filter(p => p.status === 'Aberta').length, 0);
-  const ea = vagas.reduce((sum, v) => sum + v.posicoes.filter(p => p.status === 'Em Andamento').length, 0);
-  const pre = vagas.reduce((sum, v) => sum + v.posicoes.filter(p => p.status === 'Preenchida').length, 0);
-  const con = vagas.reduce((sum, v) => sum + v.posicoes.filter(p => p.status === 'Congelada').length, 0);
+  const vagasVisiveis = getVisibleVagas();
+  const candsVisiveis = getVisibleCands();
+
+  const totalPosicoes = vagasVisiveis.reduce((sum, v) => sum + v.posicoes.length, 0);
+  const ab = vagasVisiveis.reduce((sum, v) => sum + v.posicoes.filter(p => p.status === 'Aberta').length, 0);
+  const ea = vagasVisiveis.reduce((sum, v) => sum + v.posicoes.filter(p => p.status === 'Em Andamento').length, 0);
+  const pre = vagasVisiveis.reduce((sum, v) => sum + v.posicoes.filter(p => p.status === 'Preenchida').length, 0);
+  const con = vagasVisiveis.reduce((sum, v) => sum + v.posicoes.filter(p => p.status === 'Congelada').length, 0);
 
   // Paginação das vagas preenchidas
-  const vagasPreenchidas = vagas.filter(v => v.posicoes.some(p => p.status === 'Preenchida'));
+  const vagasPreenchidas = vagasVisiveis.filter(v => v.posicoes.some(p => p.status === 'Preenchida'));
   const totalPaginas = Math.ceil(vagasPreenchidas.length / 10);
   if (paginaVagasPreenchidas > totalPaginas) paginaVagasPreenchidas = totalPaginas || 1;
   const inicio = (paginaVagasPreenchidas - 1) * 10;
@@ -1341,6 +1420,192 @@ function rconsol() {
 <div class="card"><div class="card-title">Candidatos contratados</div><div class="tbl-wrap" style="margin-top:.75rem"><table><thead><tr><th>ID</th><th>Candidato</th><th>Vaga</th><th>Telefone</th><th>Email</th><th>Obs</th></tr></thead><tbody>
   ${cands.filter(c=>c.etapa==='Contratado').length===0?`<tr><td colspan="6"><div class="empty">Nenhum</div></td></tr>`:cands.filter(c=>c.etapa==='Contratado').map(c=>{const v=vagas.find(vv=>vv.id===c.vid);return`<tr><td>${ec(c.id)}</td><td><div style="display:flex;align-items:center;gap:7px"><div class="avatar" style="width:24px;height:24px;border-radius:6px;font-size:10px;background:${avbg(c.nome)};color:${avtx(c.nome)}">${initials(c.nome)}</div>${ec(c.nome)}</div></td><td>${ec(c.vid)}${v?` – ${ec(v.cargo)}`:''}</td><td>${formatTel(c.tel)}</td><td>${ec(c.email)}</td><td>${ec(c.obs)}</td></tr>`;}).join('')}
 </tbody></table></div></div>`;
+}
+
+function switchSolicSubTab(sub) {
+  solicSubTab = sub;
+  renderP();
+}
+
+function rVagasCriadas() {
+  // Reaproveita o conteúdo atual da aba Vagas (tabelas de todas as vagas + abertas)
+  const vagasAbertas = vagas.filter(v => v.status === 'Aberta' || v.status === 'Em Andamento');
+  let filt = vagas.filter(v => (!fs || v.status === fs) && (!fv || v.cargo.toLowerCase().includes(fv.toLowerCase()) || v.id.toLowerCase().includes(fv.toLowerCase())));
+
+  const tabelaTodas = (lista) => lista.length === 0
+    ? '<tr><td colspan="9"><div class="empty">Nenhuma vaga encontrada</div></td></tr>'
+    : lista.map(v => {
+        const total = v.posicoes.length;
+        return `<tr>
+          <td><span class="td-id" style="color:#4f8ef7">${ec(v.id)}</span></td>
+          <td class="td-texto" title="${ec(v.cargo)}">${ec(v.cargo)}</td>
+          <td title="${ec(v.empresa)}">${ec(v.empresa)}</td>
+          <td title="${ec(v.local)}">${ec(v.local)}</td>
+          <td style="font-size:12px;color:var(--tx2)">${v.data}</td>
+          <td style="text-align:center;font-family:'DM Mono',monospace">${total}</td>
+          <td><span class="pill ${pcls(v.pri)}">${v.pri}</span></td>
+          <td><span class="pill ${scls(v.status)}">${v.status}</span></td>
+          <td><div class="act-row">
+            <button class="ibtn" title="Editar" onclick="editV('${ec(v.id)}')"><i class="ti ti-pencil"></i></button>
+            <button class="ibtn danger" title="Remover" onclick="delV('${ec(v.id)}')"><i class="ti ti-trash"></i></button>
+          </div></td>
+        </tr>`;
+      }).join('');
+
+  const tabelaAbertas = (lista) => lista.length === 0
+    ? '<tr><td colspan="7"><div class="empty">Nenhuma vaga aberta no momento</div></td></tr>'
+    : lista.map(v => {
+        const abertas = v.posicoes.filter(p => p.status === 'Aberta').length;
+        const total = v.posicoes.length;
+        return `<tr>
+          <td><span class="td-id" style="color:#4f8ef7">${ec(v.id)}</span></td>
+          <td class="td-texto" title="${ec(v.cargo)}">${ec(v.cargo)}</td>
+          <td title="${ec(v.empresa)}">${ec(v.empresa)}</td>
+          <td title="${ec(v.local)}">${ec(v.local)}</td>
+          <td style="text-align:center;font-family:'DM Mono',monospace">${abertas}/${total}</td>
+          <td><span class="pill ${pcls(v.pri)}">${v.pri}</span></td>
+          <td><span class="pill ${scls(v.status)}">${v.status}</span></td>
+        </tr>`;
+      }).join('');
+
+  return `
+<div class="filters">
+  <input class="fi" placeholder="Buscar cargo, ID, empresa..." value="${ec(fv)}" onchange="fv=this.value;renderP()">
+  <select class="fi" onchange="fs=this.value;renderP()">
+    <option value="">Todos os status</option>
+    ${STATS.map(s => `<option ${fs === s ? 'selected' : ''}>${s}</option>`).join('')}
+  </select>
+</div>
+<div class="card" style="margin-bottom:1.5rem">
+  <div class="card-title">📋 Todas as Vagas Cadastradas</div>
+  <div class="tbl-wrap"><table><thead><tr>
+    <th>ID</th><th>Cargo</th><th>Empresa</th><th>Local</th><th>Abertura</th><th>Vagas</th><th>Priorid.</th><th>Status</th><th>Ações</th>
+  </tr></thead><tbody>${tabelaTodas(filt)}</tbody></table></div>
+</div>
+<div class="card">
+  <div class="card-title">🔓 Vagas Abertas (Aberta / Em Andamento)</div>
+  <div class="tbl-wrap"><table><thead><tr>
+    <th>ID</th><th>Cargo</th><th>Empresa</th><th>Local</th><th>Posições (abertas/total)</th><th>Priorid.</th><th>Status</th>
+  </tr></thead><tbody>${tabelaAbertas(vagasAbertas)}</tbody></table></div>
+</div>`;
+}
+
+function rSolicitacoesVagas() {
+  if (solicitacoes.length === 0) {
+    return '<div class="empty">Nenhuma solicitação de vaga recebida.</div>';
+  }
+
+  const tabela = solicitacoes.map(s => {
+    const dataFormatada = s.data ? new Date(s.data).toLocaleDateString('pt-BR') : '-';
+    return `<tr>
+      <td><span class="td-id" style="color:#a78bfa">${s.id.slice(-5)}</span></td>
+      <td>${ec(s.cargo)}</td>
+      <td>${ec(s.empresa)}</td>
+      <td>${ec(s.local)}</td>
+      <td style="text-align:center">${s.qtd}</td>
+      <td><span class="pill ${pcls(s.pri)}">${s.pri}</span></td>
+      <td style="font-size:12px;color:var(--tx2)">${dataFormatada}</td>
+      <td>${(() => {
+        const user = USERS.find(u => u.email === s.solicitante);
+        return ec(user ? user.name : (s.solicitante?.split('@')[0] || '-'));
+      })()}</td>
+      <td>
+        <div class="act-row">
+          <button class="ibtn" title="Detalhes" onclick="verDetalhesSolicitacao('${s.id}')"><i class="ti ti-zoom-in"></i></button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `
+<div class="card" style="margin-top:1rem;">
+  <div class="card-title">📋 Solicitações de Abertura de Vaga</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>ID</th><th>Cargo</th><th>Empresa</th><th>Local</th><th>Qtd</th><th>Priorid.</th><th>Data</th><th>Solicitante</th><th>Ações</th>
+      </tr></thead>
+      <tbody>${tabela}</tbody>
+    </table>
+  </div>
+</div>`;
+}
+
+function verDetalhesSolicitacao(id) {
+  const sol = solicitacoes.find(s => s.id === id);
+  if (!sol) return;
+
+  const gmodal = document.getElementById('gmodal');
+  gmodal.style.display = 'flex';
+  gmodal.innerHTML = `
+    <div class="modal-bg" onclick="document.getElementById('gmodal').style.display='none'">
+      <div class="modal" style="max-width:500px">
+        <div class="modal-hdr">
+          <h3>Solicitação de Vaga</h3>
+          <button class="ibtn" onclick="document.getElementById('gmodal').style.display='none'"><i class="ti ti-x"></i></button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div><strong>Empresa:</strong> ${ec(sol.empresa)}</div>
+          <div><strong>Localização:</strong> ${ec(sol.local)}</div>
+          <div><strong>Cargo:</strong> ${ec(sol.cargo)}</div>
+          <div><strong>Quantidade:</strong> ${sol.qtd}</div>
+          <div><strong>Prioridade:</strong> <span class="pill ${pcls(sol.pri)}">${sol.pri}</span></div>
+          <div><strong>Solicitante:</strong> ${(() => {
+            const user = USERS.find(u => u.email === sol.solicitante);
+            return ec(user ? user.name : (sol.solicitante?.split('@')[0] || '-'));
+          })()}</div>
+          <div><strong>Data:</strong> ${new Date(sol.data).toLocaleDateString('pt-BR')}</div>
+          <div><strong>Observações:</strong> ${ec(sol.obs || '-')}</div>
+          ${sol.criterios && sol.criterios.length > 0 ? `
+          <div><strong>Critérios:</strong>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
+              ${sol.criterios.map(c => `<span class="pill" style="background:#E6F1FB;color:#0C447C;">${ec(c)}</span>`).join('')}
+            </div>
+          </div>` : ''}
+        </div>
+        <div class="modal-acts">
+          <button class="btn-sec" onclick="document.getElementById('gmodal').style.display='none'">Fechar</button>
+          <button class="btn-add" onclick="criarVagaDeSolicitacao('${sol.id}')"><i class="ti ti-plus"></i> Criar vaga</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function criarVagaDeSolicitacao(solId) {
+  const sol = solicitacoes.find(s => s.id === solId);
+  if (!sol) return;
+
+  // Gera o próximo ID de vaga
+  const novoId = nxtV();
+
+  const posicoes = Array.from({ length: sol.qtd }, (_, i) => ({ num: i + 1, status: 'Aberta' }));
+  const novaVaga = {
+    id: novoId,
+    empresa: sol.empresa,
+    local: sol.local,
+    cargo: sol.cargo,
+    data: new Date().toISOString().slice(0, 10),
+    pri: sol.pri,
+    obs: `Solicitação de ${(() => {
+      const user = USERS.find(u => u.email === sol.solicitante);
+      return user ? user.name : (sol.solicitante?.split('@')[0] || 'Gestor');
+    })()}. ${sol.obs || ''}`,
+    criterios: [],
+    posicoes,
+    qtd: posicoes.length,
+    status: 'Aberta',
+    solicitanteEmail: sol.solicitante
+  };
+
+  await saveVagaToFirestore(novaVaga);
+  await deleteSolicitacaoFromFirestore(solId);
+  document.getElementById('gmodal').style.display = 'none';
+  
+  solicSubTab = 'criadas';
+
+  showToast(`Vaga ${novoId} criada com sucesso!`);
+  renderP();
 }
 
 function recalcStatusVaga(vaga) {
@@ -1386,23 +1651,30 @@ function whatsappLink(num) {
 function mVaga() {
   const v = eid ? vagas.find(vv => vv.id === eid) : {};
   const ie = !!eid;
+  const readOnly = (userProfile === 'Gestor');
+  const disabledAttr = readOnly ? 'disabled' : '';
   const criterios = v.criterios || [];
   return `<div class="modal-bg" onclick="if(event.target.classList.contains('modal-bg'))closeM()"><div class="modal"><div class="modal-hdr">
     <h3>${ie?'Editar vaga':'Nova vaga'}</h3><button class="ibtn" onclick="closeM()"><i class="ti ti-x"></i></button></div>
   <div style="flex:1; overflow-y:auto; padding-right:4px;">
   <div class="fgrid">
     <div class="fg"><label>ID</label><input id="fi-id" value="${ec(v.id||nxtV())}" readonly></div>
-    <div class="fg"><label>Data de abertura</label><input type="date" id="fi-dt" value="${v.data||new Date().toISOString().slice(0,10)}"></div>
-    <div class="fg"><label>Empresa</label><select id="fi-ep">${EMPRESAS.map(e=>`<option ${v.empresa===e?'selected':''}>${e}</option>`).join('')}</select></div>
-    <div class="fg"><label>Localização</label><select id="fi-lc">${LOCAIS.map(l=>`<option ${v.local===l?'selected':''}>${l}</option>`).join('')}</select></div>
-    <div class="fg"><label>Cargo</label><input id="fi-cg" value="${ec(v.cargo||'')}"></div>
-    <div class="fg"><label>Qtd de vagas</label><input type="number" id="fi-qt" min="1" value="${v.posicoes ? v.posicoes.length : 1}"></div>
-    <div class="fg"><label>Prioridade</label><select id="fi-pr">${PRIS.map(p=>`<option ${v.pri===p?'selected':''}>${p}</option>`).join('')}</select></div>
-    <div class="fg full"><label>Observações</label><textarea id="fi-ob">${ec(v.obs||'')}</textarea></div>
+    <div class="fg"><label>Data de abertura</label><input type="date" id="fi-dt" value="${v.data||new Date().toISOString().slice(0,10)}" ${disabledAttr}></div>
+    <div class="fg"><label>Empresa</label><select id="fi-ep"${disabledAttr}>${EMPRESAS.map(e=>`<option ${v.empresa===e?'selected':''}>${e}</option>`).join('')}</select></div>
+    <div class="fg"><label>Localização</label><select id="fi-lc"${disabledAttr}>${LOCAIS.map(l=>`<option ${v.local===l?'selected':''}>${l}</option>`).join('')}</select></div>
+    <div class="fg"><label>Cargo</label><input id="fi-cg" value="${ec(v.cargo||'')}" ${disabledAttr}></div>
+    <div class="fg"><label>Qtd de vagas</label><input type="number" id="fi-qt" min="1" value="${v.posicoes ? v.posicoes.length : 1}" ${disabledAttr}></div>
+    <div class="fg"><label>Prioridade</label><select id="fi-pr"${disabledAttr}>${PRIS.map(p=>`<option ${v.pri===p?'selected':''}>${p}</option>`).join('')}</select></div>
+    <div class="fg full"><label>Observações</label><textarea id="fi-ob" ${disabledAttr}>${ec(v.obs||'')}</textarea></div>
+    ${v.solicitanteEmail ? `
+    <div class="fg full">
+      <label>Solicitante</label>
+      <input value="${ec(getUserNameByEmail(v.solicitanteEmail) || v.solicitanteEmail)}" readonly disabled>
+    </div>` : ''}
     <div class="fg full" style="margin-top:8px;">
       <label>Critérios</label>
       <div style="display:flex;gap:8px;">
-        <input type="text" id="fi-criterio-txt" placeholder="Digite um critério...">
+        <input type="text" id="fi-criterio-txt" placeholder="Digite um critério..." ${disabledAttr}>
         <button type="button" class="btn-sec" onclick="adicionarCriterio()" style="white-space:nowrap;"><i class="ti ti-plus"></i> Adicionar</button>
       </div>
       <ul id="fi-criterios-lista" style="list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
@@ -1410,10 +1682,20 @@ function mVaga() {
       </ul>
       <input type="hidden" id="fi-criterios" value="${criterios.join('||')}">
     </div>
-    ${ie ? `<div class="fg full"><label>Status</label><select id="fi-st">${STATS.map(s=>`<option ${v.status===s?'selected':''}>${s}</option>`).join('')}</select></div>` : ''}
+    ${ie ? `<div class="fg full"><label>Status</label><select id="fi-st" ${disabledAttr}>${STATS.map(s=>`<option ${v.status===s?'selected':''}>${s}</option>`).join('')}</select></div>` : ''}
     </div>
   </div>
-  <div class="modal-acts"><button class="btn-sec" onclick="closeM()">Cancelar</button><button class="btn-add" onclick="svV(${ie})"><i class="ti ti-check"></i>${ie?'Salvar':'Cadastrar'}</button></div></div></div>`;
+    <div class="modal-acts">
+      <button class="btn-sec" onclick="closeM()">${readOnly ? 'Fechar' : 'Cancelar'}</button>
+      ${!readOnly ? `<button class="btn-add" onclick="svV(${ie})"><i class="ti ti-check"></i>${ie?'Salvar':'Cadastrar'}</button>` : ''}
+    </div>
+  </div>
+  </div>`;
+}
+
+function getUserNameByEmail(email) {
+  const user = USERS.find(u => u.email === email);
+  return user ? user.name : null;
 }
 
 // Funções auxiliares para manipular critérios no modal
@@ -1497,6 +1779,7 @@ document.addEventListener('click', function(e) {
 function mCand() {
   const c = eid ? cands.find(cc => cc.id === eid) : {};
   const ie = !!eid;
+  const disabledAttr = userProfile === 'Gestor' ? 'disabled' : '';
   const vagaSearchHTML = renderVagaSearch(c.vid, _preSelectedVid);
   if (!ie && _preSelectedVid) _preSelectedVid = null;
   
@@ -1513,22 +1796,22 @@ function mCand() {
       <div class="fgrid">
         <div class="fg"><label>ID</label><input id="ci-id" value="${ec(c.id||nxtC())}" readonly></div>
         <div class="fg"><label>ID da vaga</label>${vagaSearchHTML}</div>
-        <div class="fg"><label>Origem</label><select id="ci-origem" onchange="toggleOutroOrigem()">${ORIGENS.map(o=>`<option ${c.origem===o?'selected':''}>${o}</option>`).join('')}</select></div>
-        <div class="fg" id="fg-outro" style="display:${c.origem==='Outro'?'flex':'none'}"><label>Especifique</label><input id="ci-outro-txt" value="${ec(c.origem==='Outro'?c.origem_txt||'':'')}"></div>
-        <div class="fg"><label>Data da candidatura</label><input type="date" id="ci-dt" value="${c.data_cand||new Date().toISOString().slice(0,10)}"></div>
-        <div class="fg full"><label>Nome completo</label><input id="ci-nm" value="${ec(c.nome||'')}"></div>
-        <div class="fg"><label>Celular</label><input id="ci-tl" placeholder="(11) 99999-9999" value="${ec(c.tel||'')}"></div>
-        <div class="fg"><label>Email</label><input id="ci-em" value="${ec(c.email||'')}"></div>
-        <div class="fg full"><label>Observações</label><textarea id="ci-ob">${ec(c.obs||'')}</textarea></div>
-        <div class="fg full"><label>Etapa</label><select id="ci-et" onchange="toggleJustificativa()">${ETAPAS.map(e=>`<option ${(c.etapa||'Triagem')===e?'selected':''}>${e}</option>`).join('')}</select></div>
+        <div class="fg"><label>Origem</label><select id="ci-origem" onchange="toggleOutroOrigem()" ${disabledAttr}>${ORIGENS.map(o=>`<option ${c.origem===o?'selected':''}>${o}</option>`).join('')}</select></div>
+        <div class="fg" id="fg-outro" style="display:${c.origem==='Outro'?'flex':'none'}"><label>Especifique</label><input id="ci-outro-txt" value="${ec(c.origem==='Outro'?c.origem_txt||'':'')}" ${disabledAttr}></div>
+        <div class="fg"><label>Data da candidatura</label><input type="date" id="ci-dt" value="${c.data_cand||new Date().toISOString().slice(0,10)}" ${disabledAttr}></div>
+        <div class="fg full"><label>Nome completo</label><input id="ci-nm" value="${ec(c.nome||'')}" ${disabledAttr}></div>
+        <div class="fg"><label>Celular</label><input id="ci-tl" placeholder="(11) 99999-9999" value="${ec(c.tel||'')}" ${disabledAttr}></div>
+        <div class="fg"><label>Email</label><input id="ci-em" value="${ec(c.email||'')}" ${disabledAttr}></div>
+        <div class="fg full"><label>Observações</label><textarea id="ci-ob" ${disabledAttr}>${ec(c.obs||'')}</textarea></div>
+        <div class="fg full"><label>Etapa</label><select id="ci-et" onchange="toggleJustificativa()" ${disabledAttr}>${ETAPAS.map(e=>`<option ${(c.etapa||'Triagem')===e?'selected':''}>${e}</option>`).join('')}</select></div>
         <div class="fg full" id="fg-justificativa" style="display:${showJustificativa ? 'flex' : 'none'}">
           <label>Justificativa de desistência</label>
-          <select id="ci-justificativa" onchange="toggleJustificativaOutro()">
+          <select id="ci-justificativa" onchange="toggleJustificativaOutro()" ${disabledAttr}>
             <option value="">Selecione...</option>
             ${JUSTIFICATIVAS.map(j => `<option ${c.justificativa===j?'selected':''}>${j}</option>`).join('')}
           </select>
           <div id="fg-justificativa-outro" style="display:${c.justificativa==='Outros'?'flex':'none'};margin-top:5px;">
-            <input id="ci-justificativa-outro-txt" placeholder="Especifique..." value="${ec(c.justificativa_outro||'')}">
+            <input id="ci-justificativa-outro-txt" placeholder="Especifique..." value="${ec(c.justificativa_outro||'')}" ${disabledAttr}>
           </div>
           <div style="margin-top:10px; display:flex; align-items:center; gap:8px;">
             <input type="checkbox" id="ci-envio-reprovacao" ${c.envioReprovacao ? 'checked' : ''} style="width:auto; cursor:pointer;">
@@ -1552,7 +1835,7 @@ function mCand() {
         </div>` : ''}
       <div class="modal-acts">
         <button class="btn-sec" onclick="closeM()">Cancelar</button>
-        <button class="btn-add" onclick="svC(${ie})"><i class="ti ti-check"></i>${ie?'Salvar':'Cadastrar'}</button>
+        ${userProfile === 'RH' ? `<button class="btn-add" onclick="svC(${ie})"><i class="ti ti-check"></i>${ie?'Salvar':'Cadastrar'}</button>` : ''}
       </div>
     </div>
   </div>`;
@@ -1576,7 +1859,13 @@ function toggleOutroOrigem() {
 }
 
 // ========== CRUD (Firebase) ==========
-function openM(t) { modal = t; eid = null; _preSelectedVid = null; renderP(); }
+function openM(t) {
+  if (userProfile === 'Gestor') {
+    showAlert('Acesso restrito ao RH.');
+    return;
+  }
+  modal = t; eid = null; _preSelectedVid = null; renderP();
+}
 function closeM() { modal = null; eid = null; _preSelectedVid = null; renderP(); }
 function editV(id) { eid = id; modal = 'vaga'; renderP(); }
 function editC(id) { eid = id; modal = 'cand'; renderP(); }
@@ -1714,7 +2003,8 @@ async function svV(ie) {
     criterios,
     posicoes,
     qtd: posicoes.length,
-    status: statusGeral
+    status: statusGeral,
+    solicitanteEmail: vagaAtual?.solicitanteEmail || null
   };
   if (!o.cargo || !o.empresa) { showAlert('Preencha cargo e empresa.'); return; }
   if (ie) vagas = vagas.map(v => v.id === id ? o : v);
@@ -1727,6 +2017,10 @@ async function svV(ie) {
 }
 
 async function svC(ie) {
+   if (userProfile === 'Gestor') {
+    showAlert('Acesso restrito ao RH.');
+    return;
+  }
   const id = document.getElementById('ci-id').value.trim();
   const vid = document.getElementById('ci-vg').value;
   const origemSel = document.getElementById('ci-origem').value;
@@ -1827,9 +2121,13 @@ function showLogin() {
   app.innerHTML = `
     <div class="login-container" id="loginScreen">
       <div class="login-box">
-        <h2>Seja bem-vinda!</h2>
+        <h2>Seja bem-vindo(a)!</h2>
+        <select id="loginProfile" onchange="atualizarUsuarios()">
+          <option value="RH">RH</option>
+          <option value="Gestor">Gestor</option>
+        </select>
         <select id="loginUser">
-          ${USERS.map(u => `<option value="${u.email}">${u.name}</option>`).join('')}
+          ${USERS.filter(u => u.role === 'RH').map(u => `<option value="${u.email}">${u.name}</option>`).join('')}
         </select>
         <div class="password-wrapper">
           <input type="password" id="loginPassword" placeholder="Senha">
@@ -1843,23 +2141,34 @@ function showLogin() {
     </div>
   `;
 }
+function atualizarUsuarios() {
+  const perfil = document.getElementById('loginProfile').value;
+  const select = document.getElementById('loginUser');
+  select.innerHTML = USERS
+    .filter(u => u.role === perfil)
+    .map(u => `<option value="${u.email}">${u.name}</option>`)
+    .join('');
+}
+
+
 function login() {
   const email = document.getElementById('loginUser').value;
   const password = document.getElementById('loginPassword').value;
+  const perfilSelecionado = document.getElementById('loginProfile').value;
   auth.signInWithEmailAndPassword(email, password)
     .then((userCredential) => {
       currentUser = userCredential.user;
-      if (!USERS.some(u => u.email === currentUser.email)) {
+      const userInfo = USERS.find(u => u.email === currentUser.email);
+      if (!userInfo || userInfo.role !== perfilSelecionado) {
         auth.signOut();
-        showAlert('Usuário não autorizado.');
+        showAlert('Usuário não autorizado para este perfil.');
         return;
       }
-      // Garante que o modal de carregamento/erro não fique preso
+      userProfile = perfilSelecionado;  // 👈 guarda o perfil
       document.getElementById('gmodal').style.display = 'none';
       initApp();
     })
     .catch((error) => {
-      // Exibe apenas se realmente for erro de autenticação
       if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
         showAlert('Senha incorreta. Tente novamente.');
       } else {
@@ -1867,6 +2176,7 @@ function login() {
       }
     });
 }
+
 function openChangePasswordModal() {
   const gmodal = document.getElementById('gmodal');
   gmodal.style.display = 'flex';
@@ -1914,6 +2224,91 @@ function togglePasswordVisibility() {
   }
 }
 
+// ===== MODAL DE SOLICITAÇÃO DE VAGA (GESTOR) =====
+function showSolicitarVagaModal() {
+  const gmodal = document.getElementById('gmodal');
+  gmodal.style.display = 'flex';
+  gmodal.innerHTML = `
+    <div class="modal-bg">
+      <div class="modal" style="max-width:500px">
+        <div class="modal-hdr">
+          <h3>Solicitar Abertura de Vaga</h3>
+          <button class="ibtn" onclick="document.getElementById('gmodal').style.display='none'"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="fgrid">
+          <div class="fg"><label>Empresa</label><select id="sol-empresa">${EMPRESAS.map(e => `<option>${e}</option>`).join('')}</select></div>
+          <div class="fg"><label>Localização</label><select id="sol-local">${LOCAIS.map(l => `<option>${l}</option>`).join('')}</select></div>
+          <div class="fg"><label>Cargo</label><input id="sol-cargo" placeholder="Ex: Analista de TI"></div>
+          <div class="fg"><label>Quantidade</label><input type="number" id="sol-qtd" min="1" value="1"></div>
+          <div class="fg"><label>Prioridade</label><select id="sol-pri">${PRIS.map(p => `<option>${p}</option>`).join('')}</select></div>
+          <div class="fg full"><label>Observações</label><textarea id="sol-obs" placeholder="Descreva o motivo da solicitação..."></textarea></div>
+          <div class="fg full" style="margin-top:8px;">
+            <label>Critérios</label>
+            <div style="display:flex;gap:8px;">
+              <input type="text" id="sol-criterio-txt" placeholder="Digite um critério...">
+              <button type="button" class="btn-sec" onclick="adicionarCriterioSol()" style="white-space:nowrap;"><i class="ti ti-plus"></i> Adicionar</button>
+            </div>
+            <ul id="sol-criterios-lista" style="list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></ul>
+            <input type="hidden" id="sol-criterios-hidden" value="">
+          </div>
+        </div>
+        <div class="modal-acts">
+          <button class="btn-sec" onclick="document.getElementById('gmodal').style.display='none'">Cancelar</button>
+          <button class="btn-add" onclick="solicitarVaga()"><i class="ti ti-send"></i> Solicitar</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function adicionarCriterioSol() {
+  const input = document.getElementById('sol-criterio-txt');
+  const valor = input.value.trim();
+  if (!valor) return;
+  const hidden = document.getElementById('sol-criterios-hidden');
+  const lista = document.getElementById('sol-criterios-lista');
+  const criterios = hidden.value ? hidden.value.split('||') : [];
+  criterios.push(valor);
+  hidden.value = criterios.join('||');
+  // recriar lista visual
+  lista.innerHTML = criterios.map((c, i) => `<li class="pill" style="background:#E6F1FB;color:#0C447C;display:flex;align-items:center;gap:6px;">${ec(c)} <button type="button" class="ibtn" style="font-size:12px;padding:0;color:#0C447C;" onclick="removerCriterioSol(${i})"><i class="ti ti-x"></i></button></li>`).join('');
+  input.value = '';
+}
+
+function removerCriterioSol(index) {
+  const hidden = document.getElementById('sol-criterios-hidden');
+  const criterios = hidden.value ? hidden.value.split('||') : [];
+  criterios.splice(index, 1);
+  hidden.value = criterios.join('||');
+  const lista = document.getElementById('sol-criterios-lista');
+  lista.innerHTML = criterios.map((c, i) => `<li class="pill" style="background:#E6F1FB;color:#0C447C;display:flex;align-items:center;gap:6px;">${ec(c)} <button type="button" class="ibtn" style="font-size:12px;padding:0;color:#0C447C;" onclick="removerCriterioSol(${i})"><i class="ti ti-x"></i></button></li>`).join('');
+}
+
+async function solicitarVaga() {
+  const cargo = document.getElementById('sol-cargo').value.trim();
+  if (!cargo) { showAlert('Preencha o cargo.'); return; }
+
+  const criteriosHidden = document.getElementById('sol-criterios-hidden');
+  const criterios = criteriosHidden ? (criteriosHidden.value ? criteriosHidden.value.split('||') : []) : [];
+
+  const solicitacao = {
+    empresa: document.getElementById('sol-empresa').value,
+    local: document.getElementById('sol-local').value,
+    cargo: cargo,
+    qtd: parseInt(document.getElementById('sol-qtd').value) || 1,
+    pri: document.getElementById('sol-pri').value,
+    obs: document.getElementById('sol-obs').value,
+    criterios: criterios,
+    solicitante: currentUser?.email || 'Desconhecido',
+    data: new Date().toISOString(),
+    status: 'Pendente',
+  };
+
+  await db.collection('solicitacoes_vaga').add(solicitacao);
+  document.getElementById('gmodal').style.display = 'none';
+  showToast('Solicitação enviada com sucesso!');
+}
+
 
 // ========== INICIALIZAÇÃO ==========
 async function initApp() {
@@ -1942,7 +2337,23 @@ async function initApp() {
   `;
   render();
 }
-showLogin();
+
+
+// Observa mudanças na autenticação
+auth.onAuthStateChanged((user) => {
+  if (user) {
+    currentUser = user;
+    // Restaura o perfil do usuário a partir da lista local (ou você pode salvar no localStorage)
+    const userInfo = USERS.find(u => u.email === user.email);
+    userProfile = userInfo ? userInfo.role : 'RH';
+    initApp();
+  } else {
+    currentUser = null;
+    showLogin();
+  }
+});
+
+
 </script>
 </body>
 </html>
