@@ -266,7 +266,7 @@ th { padding: 9px 14px; text-align: left; font-size: 10px; font-weight: 500; col
 td { padding: 10px 14px; border-bottom: 0.5px solid var(--border); color: var(--tx); vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 tr:last-child td { border-bottom: none; }
 tr:hover td { background: var(--surf2); }
-.td-id { font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; }
+.td-id { font-family: 'DM Mono', monospace; font-size: 11.5px; font-weight: 300; }
 .act-row { display: flex; gap: 3px; }
 .ibtn { background: transparent; border: none; cursor: pointer; padding: 4px; border-radius: 6px; color: var(--tx2); font-size: 15px; display: flex; align-items: center; transition: all 0.12s; }
 .ibtn:hover { background: var(--surf2); color: var(--tx); }
@@ -487,9 +487,31 @@ textarea { resize: vertical; min-height: 70px; }
   transition: opacity 0.3s ease;
   pointer-events: auto;
   font-family: 'DM Sans', sans-serif;
+  border: 1px solid var(--color-background-tertiary);
 }
 .toast.show {
   opacity: 1;
+}
+
+.modal-body-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
+}
+.modal-body-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.modal-body-scroll::-webkit-scrollbar-thumb {
+  background: var(--border2);
+  border-radius: 10px;
+}
+
+.modal-bg {
+  overflow-y: auto;           /* permite scroll se o modal for maior que a tela */
+  align-items: safe center;   /* mantém centralizado, mas respeita limites */
+}
+
+.modal > .modal-body-scroll {
+  min-height: 0;              /* evita que o flex container force altura mínima */
 }
 
 </style>
@@ -543,7 +565,7 @@ function getVisibleCands() {
 }
 
 // ========== DADOS ==========
-const ETAPAS = ['Triagem', 'Teste lógico','Entrevista RH','Entrevista Técnica','Entrevista Gestor','Proposta','Admissão','Contratado','Reprovado'];
+const ETAPAS = ['Triagem', 'Entrevista RH', 'Teste','Entrevista Gestor','Entrevista Diretor', 'Entrevista Extra', 'Proposta','Admissão','Contratado','Reprovado'];
 const PRIS = ['Baixa','Média','Alta'];
 const STATS = ['Aberta','Em Andamento','Preenchida','Congelada'];  // ALTERADO
 const EMPRESAS = ['Energia','Engenharia','GD','Netz'];
@@ -554,13 +576,53 @@ const JUSTIFICATIVAS = ['Problemas familiares','Distância', 'Desistiu', 'Proble
 let vagas = [];
 let cands = [];
 let page = 'dashboard', modal = null, eid = null, modalCandVagaId = null;
-let fv = '', fs = '', fe = '', fvc = '';
+let fv = '', fs = '', fvc = '';
+let feList = [];
 let _preSelectedVid = null;
 let candSubTab = 'porVaga'; // 'porVaga' ou 'total'
 let paginaVagasPreenchidas = 1;
 let vagaDash = '';
 let solicSubTab = 'criadas'; // 'criadas' ou 'solicitacoes'
 let solicitacoes = []; // armazena as solicitações dos gestores
+let modalFeList = [];
+let modalTempFeList = [];
+let candSortOrder = 'desc'; // 'asc' ou 'desc'
+
+//========== MOTIVOS ========
+const MOTIVOS_REPROVACAO = [
+  'Dispensado pelo gestor',
+  'Dispensado RH',
+  'Dispensado Teste',
+  'Abandono',
+  'Desistência'
+];
+
+const SUBMOTIVOS = {
+  'Dispensado pelo gestor': [
+    'Baixa adesão ao perfil técnico',
+    'Baixa adesão ao perfil comportamental',
+    'Pretensão salarial',
+    'Problema com requisitos fundamentais'
+  ],
+  'Dispensado RH': [
+    'Baixa adesão ao perfil técnico',
+    'Baixa adesão ao perfil comportamental',
+    'Pretensão salarial',
+    'Problema com requisitos fundamentais'
+  ],
+  'Dispensado Teste': [],
+  'Abandono': [
+    'Não retornou contato',
+    'Faltou em entrevista ou teste'
+  ],
+  'Desistência': [
+    'Problemas familiares',
+    'Distância',
+    'Foi contratado por outra empresa',
+    'Busca vaga híbrida',
+    'Pretensão salarial'
+  ]
+};
 
 // ========== FIREBASE DATA ==========
 async function loadDataFromFirestore() {
@@ -624,6 +686,16 @@ function liberarPosicao(vid, posicaoId) {
   const pos = vaga.posicoes.find(p => p.num === num);
   if (pos && pos.status === 'Preenchida') {
     pos.status = 'Aberta';
+  }
+}
+
+//===============ordenação =================
+function toggleCandSortOrder() {
+  candSortOrder = candSortOrder === 'asc' ? 'desc' : 'asc';
+  renderP();
+  // Se o modal de candidatos por vaga estiver aberto, reaplica a ordenação/filtro
+  if (modalCandVagaId) {
+    filtrarCandidatosNaVaga();
   }
 }
 
@@ -748,9 +820,7 @@ function parseCSVLine(line) {
 // ========== NAVEGAÇÃO ==========
 function nav(p) {
   page = p; eid = null; modal = null; modalCandVagaId = null; _preSelectedVid = null;
-  //if (p !== 'consolidado') paginaVagasPreenchidas = 1; //reseta paginação ao sair do consolidado
-  //if (p === 'candidatos') candSubTab = 'porVaga'; // reseta ao entrar na aba
-  fv = ''; fs = ''; fe = ''; fvc = '';
+  fv = ''; fs = ''; feList = []; fvc = '';
   solicSubTab = 'criadas';
   vagaDash = '';
   document.querySelectorAll('.nav-btn').forEach((b, i) => b.classList.toggle('active', ['dashboard','vagas','candidatos','consolidado'][i] === p));
@@ -786,6 +856,55 @@ function gerarDonut(dados, cores, centroLabel) {
     return slice;
   }).join('');
   return `<div class="donut-wrap"><svg viewBox="0 0 100 100">${slices}</svg><div class="donut-center"><div class="donut-total">${total}</div><div class="donut-sub">${centroLabel}</div></div></div>`;
+}
+
+// ----- NOVAS FUNÇÕES PARA FILTRO DE MÚLTIPLAS ETAPAS -----
+let tempFeList = []; // array temporário usado no dropdown
+
+function toggleDropdownEtapas() {
+  const dd = document.getElementById('dropdown-etapas');
+  if (!dd) return;
+  // Se já está aberto, fecha (e reseta tempFeList para feList)
+  if (dd.style.display === 'block') {
+    dd.style.display = 'none';
+    tempFeList = [...feList]; // reseta seleções temporárias
+    return;
+  }
+  // Abre e inicializa tempFeList com o que está realmente aplicado
+  tempFeList = [...feList];
+  dd.style.display = 'block';
+
+  // Listener para fechar ao clicar fora (adiciona uma vez, remove ao fechar)
+  const handler = (e) => {
+    if (!dd.contains(e.target) && e.target.id !== 'btn-etapas') {
+      dd.style.display = 'none';
+      tempFeList = [...feList];
+      document.removeEventListener('click', handler);
+    }
+  };
+  // Pequeno timeout para evitar que o próprio clique de abertura dispare o fechamento
+  setTimeout(() => document.addEventListener('click', handler), 10);
+}
+
+function onCheckEtapa(etapa) {
+  const idx = tempFeList.indexOf(etapa);
+  if (idx > -1) tempFeList.splice(idx, 1);
+  else tempFeList.push(etapa);
+}
+
+function aplicarFiltroEtapas() {
+  feList = [...tempFeList];
+  const dd = document.getElementById('dropdown-etapas');
+  if (dd) dd.style.display = 'none';
+  renderP();
+}
+
+function limparFiltroEtapas() {
+  feList = [];
+  tempFeList = [];
+  const dd = document.getElementById('dropdown-etapas');
+  if (dd) dd.style.display = 'none';
+  renderP();
 }
 
 // ========== RENDER PÁGINAS ==========
@@ -841,14 +960,14 @@ function rdash() {
 </div>
 <div class="charts-grid">
   <div class="chart-card">
-    <div class="chart-title">📊 Vagas por Status</div>
+    <div class="chart-title"><i class="ti ti-flag"></i> Vagas por Status</div>
     <div class="chart-content">
       ${gerarDonut(byStatus, statusColors, 'vagas')}
       <div class="legend">${STATS.map(s => `<div class="legend-item"><span class="legend-dot" style="background:${statusColors[s]}"></span><span class="legend-label">${s}</span><span class="legend-value">${byStatus[s]}</span></div>`).join('')}</div>
     </div>
   </div>
   <div class="chart-card">
-    <div class="chart-title">👥 Candidatos por Etapa</div>
+    <div class="chart-title"><i class="ti ti-users"></i> Candidatos por Etapa</div>
     <div class="chart-content">
       ${gerarDonut(byEtapa, etapaColors, 'candidatos')}
       <div class="legend">${ETAPAS.map(e => `<div class="legend-item"><span class="legend-dot" style="background:${etapaColors[e]}"></span><span class="legend-label">${e}</span><span class="legend-value">${byEtapa[e]}</span></div>`).join('')}</div>
@@ -856,7 +975,7 @@ function rdash() {
   </div>
 </div>
 <div class="card" style="margin-bottom:1.25rem">
-  <div class="card-title">📈 Análise por Vaga</div>
+  <div class="card-title"><i class="ti ti-chart-histogram"></i> Análise por Vaga</div>
   <select class="fi" onchange="vagaDash=this.value;renderP()" style="max-width:300px;margin-bottom:1rem;">
     <option value="">Selecione uma vaga...</option>
     ${vagasVisiveis.filter(v => v.status !== 'Preenchida').map(v => `<option value="${v.id}" ${vagaDash === v.id ? 'selected' : ''}>${v.id} – ${ec(v.cargo)}</option>`).join('')}
@@ -875,7 +994,7 @@ function rdash() {
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:32px; margin-top:1rem;">
       <!-- Coluna 1: Donut de candidatos -->
       <div style="display:flex; flex-direction:column; align-items:center;">
-        <div style="font-size:14px; font-weight:600; color:var(--tx); margin-bottom:0.75rem;">👥 Candidatos por Etapa</div>
+        <div style="font-size:14px; font-weight:600; color:var(--tx); margin-bottom:0.75rem;"><i class="ti ti-users-group"></i> Candidatos por Etapa</div>
         <div style="display:flex; align-items:center; gap:16px; width:100%;">
           ${gerarDonut(byEtapaVaga, etapaColors, 'candidatos')}
           <div class="legend" style="flex:1; margin-left:8px;">${ETAPAS.map(e => `<div class="legend-item"><span class="legend-dot" style="background:${etapaColors[e]}"></span><span class="legend-label">${e}</span><span class="legend-value">${byEtapaVaga[e]}</span></div>`).join('')}</div>
@@ -883,7 +1002,7 @@ function rdash() {
       </div>
       <!-- Coluna 2: Barras de tempo médio -->
       <div style="display:flex; flex-direction:column;">
-        <div style="font-size:14px; font-weight:600; color:var(--tx); margin-bottom:0.75rem;">⏱️ Tempo Médio por Etapa (dias)</div>
+        <div style="font-size:14px; font-weight:600; color:var(--tx); margin-bottom:0.75rem;"><i class="ti ti-clock"></i> Tempo Médio por Etapa (dias)</div>
         <div style="flex:1; overflow-y:auto; max-height:300px; padding-right:4px;">
           ${gerarGraficoBarrasMedias(medias)}
         </div>
@@ -891,7 +1010,7 @@ function rdash() {
     </div>
     ${justificativasHTML ? `
     <div style="margin-top:1.5rem; padding-top:1rem; border-top:0.5px solid var(--border);">
-      <div style="font-size:14px; font-weight:600; color:var(--tx); margin-bottom:0.75rem;">🚫 Justificativas de Reprovação</div>
+      <div style="font-size:14px; font-weight:600; color:var(--tx); margin-bottom:0.75rem;"><i class="ti ti-square-rounded-x"></i> Justificativas de Reprovação</div>
       ${justificativasHTML}
     </div>` : ''}
     `;
@@ -899,39 +1018,41 @@ function rdash() {
 </div>
 <div class="recent-grid">
   <div class="activity-card">
-    <div class="activity-title">🕐 Atividade Recente</div>
+    <div class="activity-title"><i class="ti ti-clock"></i> Atividade Recente</div>
     <div class="activity-list">${recentes.length === 0 ? '<div class="empty">Nenhuma atividade</div>' : recentes.map(c => {
       const v = vagas.find(vv => vv.id === c.vid);
       return `<div class="activity-item"><div class="activity-avatar" style="background:${avbg(c.nome)};color:${avtx(c.nome)}">${initials(c.nome)}</div><div style="flex:1"><strong class="td-nome">${ec(c.nome)}</strong> <span style="color:var(--tx3)">→ ${c.etapa}</span></div><span class="pill ${eclsf(c.etapa)}">${c.etapa}</span></div>`;
     }).join('')}</div>
-  </div>
-  <div class="activity-card">
-  <div class="activity-title">⚡ Ações Rápidas</div>
-  <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
-    ${userProfile === 'RH' ? `<button class="btn-pill" onclick="nav('vagas');openM('vaga')"><i class="ti ti-plus"></i> Criar nova vaga</button>` : ''}
-    ${userProfile === 'RH' ? `<button class="btn-pill" onclick="nav('candidatos')"><i class="ti ti-user-plus"></i> Adicionar candidato</button>` : ''}
-    ${userProfile === 'Gestor' ? `<button class="btn-pill" style="background:#4f8ef7;color:#fff;" onclick="showSolicitarVagaModal()"><i class="ti ti-clipboard-list"></i> Solicitar vaga</button>` : ''}
-    <button class="btn-pill" onclick="nav('consolidado')"><i class="ti ti-chart-pie"></i> Ver consolidado</button>
-  </div>
-  <div style="margin-top:1rem;padding-top:0.8rem;border-top:0.5px solid var(--border);font-size:11px;color:var(--tx3)"><i class="ti ti-database"></i> Dados salvos automaticamente</div>
-</div>
-<!-- BOTÕES DE IMPORTAÇÃO/EXPORTAÇÃO -->
-<div class="card" style="margin-top:1.25rem">
-  <div class="card-title">📁 Gerenciar Dados</div>
-  <div class="data-actions">
-    <button class="btn-sec" onclick="exportVagasCSV()"><i class="ti ti-download"></i> Exportar Vagas CSV</button>
-    <button class="btn-sec" onclick="exportCandsCSV()"><i class="ti ti-download"></i> Exportar Candidatos CSV</button>
-    <label class="btn-sec" style="cursor:pointer; margin:0;">
-      <i class="ti ti-upload"></i> Importar Vagas CSV
-      <input type="file" accept=".csv" style="display:none" onchange="importVagasCSV(this.files[0])">
-    </label>
-    <label class="btn-sec" style="cursor:pointer; margin:0;">
-      <i class="ti ti-upload"></i> Importar Candidatos CSV
-      <input type="file" accept=".csv" style="display:none" onchange="importCandsCSV(this.files[0])">
-    </label>
-  </div>
-  <p style="font-size:11px; color:var(--tx3); margin-top:6px;">Os dados são salvos automaticamente. Use os botões para backup ou importação em lote.</p>
-</div>`;
+      </div>
+      <div class="activity-card">
+        <div class="activity-title"><i class="ti ti-bolt"></i> Ações Rápidas</div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+          ${userProfile === 'RH' ? `<button class="btn-pill" onclick="nav('vagas');openM('vaga')"><i class="ti ti-plus"></i> Criar nova vaga</button>` : ''}
+          ${userProfile === 'RH' ? `<button class="btn-pill" onclick="nav('candidatos')"><i class="ti ti-user-plus"></i> Adicionar candidato</button>` : ''}
+          ${userProfile === 'Gestor' ? `<button class="btn-pill" style="background:#4f8ef7;color:#fff;" onclick="showSolicitarVagaModal()"><i class="ti ti-clipboard-list"></i> Solicitar vaga</button>` : ''}
+          <button class="btn-pill" onclick="nav('consolidado')"><i class="ti ti-chart-pie"></i> Ver consolidado</button>
+        </div>
+        <div style="margin-top:1rem;padding-top:0.8rem;border-top:0.5px solid var(--border);font-size:11px;color:var(--tx3)"><i class="ti ti-database"></i> Dados salvos automaticamente</div>
+      </div>
+    </div>
+    <!-- BOTÕES DE IMPORTAÇÃO/EXPORTAÇÃO -->
+    <div class="card" style="margin-top:1.25rem;">
+      <div class="card-title"><i class="ti ti-folder"></i> Gerenciar Dados</div>
+      <div class="data-actions">
+        <button class="btn-sec" onclick="exportVagasCSV()"><i class="ti ti-download"></i> Exportar Vagas CSV</button>
+        <button class="btn-sec" onclick="exportCandsCSV()"><i class="ti ti-download"></i> Exportar Candidatos CSV</button>
+        <label class="btn-sec" style="cursor:pointer; margin:0;">
+          <i class="ti ti-upload"></i> Importar Vagas CSV
+          <input type="file" accept=".csv" style="display:none" onchange="importVagasCSV(this.files[0])">
+        </label>
+        <label class="btn-sec" style="cursor:pointer; margin:0;">
+          <i class="ti ti-upload"></i> Importar Candidatos CSV
+          <input type="file" accept=".csv" style="display:none" onchange="importCandsCSV(this.files[0])">
+        </label>
+      </div>
+      <p style="font-size:11px; color:var(--tx3); margin-top:6px;">Os dados são salvos automaticamente. Use os botões para backup ou importação em lote.</p>
+    </div>
+  `; // <-- só fecha a template string aqui
 }
 
 function calcularTempoMedioPorEtapa(vid = null) {
@@ -1146,13 +1267,13 @@ ${modal === 'vaga' ? mVaga() : ''}`;
   </select>
 </div>
 <div class="card" style="margin-bottom:1.5rem">
-  <div class="card-title">📋 Minhas Vagas Cadastradas</div>
+  <div class="card-title"><i class="ti ti-clipboard-list"></i> Minhas Vagas Cadastradas</div>
   <div class="tbl-wrap"><table><thead><tr>
     <th>ID</th><th>Cargo</th><th>Empresa</th><th>Local</th><th>Abertura</th><th>Vagas</th><th>Priorid.</th><th>Status</th><th>Solicitante</th><th>Ações</th>
   </tr></thead><tbody>${tabelaTodas(filt)}</tbody></table></div>
 </div>
 <div class="card">
-  <div class="card-title">🔓 Vagas Abertas (Aberta / Em Andamento)</div>
+  <div class="card-title"><i class="ti ti-lock-open"></i> Vagas Abertas (Aberta / Em Andamento)</div>
   <div class="tbl-wrap"><table><thead><tr>
     <th>ID</th><th>Cargo</th><th>Empresa</th><th>Local</th><th>Posições (abertas/total)</th><th>Priorid.</th><th>Status</th>
   </tr></thead><tbody>${tabelaAbertas(vagasAbertas)}</tbody></table></div>
@@ -1228,9 +1349,9 @@ function rcandsPorVaga() {
           <div class="vaga-cargo" style="font-weight:500;font-size:14px">${ec(v.cargo)}</div>
           <div style="font-size:12px;color:var(--tx2)">${ec(v.empresa)} · ${ec(v.local)}</div>
           <div style="display:flex;gap:12px;margin-top:4px;font-size:12px">
-            <span>🧑‍💼 ${candsVaga.length} candidato(s)</span>
-            <span>✅ ${contratados} contratado(s)</span>
-            <span>🔓 ${abertas} vaga(s) aberta(s)</span>
+            <span><i class="ti ti-user"></i> ${candsVaga.length} candidato(s)</span>
+            <span><i class="ti ti-check"></i> ${contratados} contratado(s)</span>
+            <span><i class="ti ti-lock"></i> ${abertas} vaga(s) aberta(s)</span>
           </div>
         </div>
       </div>`;
@@ -1251,21 +1372,34 @@ function rcandsPorVaga() {
 // Tabela com todos os candidatos
 function rcandsTotal() {
   const busca = fv.toLowerCase();
-  const etapaFiltro = fe;
   const candsVisiveis = getVisibleCands();
 
+  // Inicializa tempFeList a partir de feList toda vez que renderiza
+  tempFeList = [...feList];
+
   let filtrados = candsVisiveis.filter(c => {
-    const matchBusca = !busca || c.nome.toLowerCase().includes(busca) || c.id.toLowerCase().includes(busca);
-    const matchEtapa = !etapaFiltro || c.etapa === etapaFiltro;
-    return matchBusca && matchEtapa;
-  });
+  const matchBusca = !busca || c.nome.toLowerCase().includes(busca) || c.id.toLowerCase().includes(busca);
+  const matchEtapa = feList.length === 0 || feList.includes(c.etapa);
+  return matchBusca && matchEtapa;
+});
+
+// ORDENAÇÃO por ID
+filtrados.sort((a, b) => {
+  const numA = parseInt(a.id.replace('C','')) || 0;
+  const numB = parseInt(b.id.replace('C','')) || 0;
+  return candSortOrder === 'desc' ? numB - numA : numA - numB;
+});
+
+  // Conta quantos candidatos em cada etapa para mostrar nos checkboxes
+  const etapaCounts = {};
+  ETAPAS.forEach(e => etapaCounts[e] = candsVisiveis.filter(c => c.etapa === e).length);
 
   const tabela = filtrados.length === 0
     ? '<tr><td colspan="7"><div class="empty">Nenhum candidato encontrado</div></td></tr>'
     : filtrados.map(c => {
         const v = vagas.find(vv => vv.id === c.vid);
         return `<tr>
-          <td><span class="td-id" style="color:#a78bfa">${c.id}</span></td>
+          <td><span class="td-id" style="color:#a78bfa; width:60px">${c.id}</span></td>
           <td  class="td-nome"><div style="display:flex;align-items:center;gap:7px"><div class="avatar" style="width:24px;height:24px;border-radius:6px;font-size:10px;background:${avbg(c.nome)};color:${avtx(c.nome)}">${initials(c.nome)}</div>${ec(c.nome)}</div></td>
           <td>${c.vid} ${v ? '– ' + ec(v.cargo) : ''}</td>
           <td>
@@ -1285,13 +1419,36 @@ function rcandsTotal() {
       }).join('');
 
   return `
-<div class="filters">
+<div class="filters" style="display:flex; gap:8px; align-items:flex-start; flex-wrap:wrap;">
   <input class="fi" placeholder="Buscar por nome ou ID..." value="${ec(fv)}" onchange="fv=this.value;renderP()" style="min-width:250px;">
-  <select class="fi" onchange="fe=this.value;renderP()">
-    <option value="">Todas as etapas</option>
-    ${ETAPAS.map(e => `<option ${fe === e ? 'selected' : ''}>${e}</option>`).join('')}
-  </select>
+  
+  <!-- Dropdown de múltiplas etapas -->
+  <div style="position:relative;">
+    <button type="button" id="btn-etapas" class="btn-sec" onclick="toggleDropdownEtapas()">
+      <i class="ti ti-filter"></i> Etapas ${feList.length > 0 ? `(${feList.length})` : ''}
+    </button>
+    <div id="dropdown-etapas" style="position:absolute; top:100%; left:0; background:var(--surf); border:0.5px solid var(--border2); border-radius:var(--r); padding:8px; min-width:220px; z-index:100; display:none; height:338px; overflow-y:auto; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+      ${ETAPAS.map(e => `
+        <label style="display:flex; align-items:center; gap:6px; padding:4px 0; cursor:pointer; font-size:13px;">
+          <input type="checkbox" ${tempFeList.includes(e) ? 'checked' : ''} onchange="onCheckEtapa('${e.replace(/'/g, "\\'")}')" style="width:auto;">
+          <span class="pill ${eclsf(e)}">${e}</span>
+          <span style="margin-left:auto; font-size:11px; color:var(--tx3);">${etapaCounts[e]}</span>
+        </label>
+      `).join('')}
+      <div style="margin-top:6px; display:flex; gap:4px;">
+        <button type="button" class="btn-sec" onclick="aplicarFiltroEtapas()" style="flex:1; justify-content: center;">Aplicar</button>
+      </div>
+    </div>
+  </div>
+   <!-- Botão de ordenação -->
+      <button class="btn-sec" onclick="toggleCandSortOrder()" title="Alternar ordem dos IDs">
+        <i class="ti ti-arrow-${candSortOrder === 'desc' ? 'down' : 'up'}"></i> ID ${candSortOrder === 'desc' ? 'decrescente' : 'crescente'}
+      </button>
+
+  ${feList.length > 0 ? `<button class="btn-sec" onclick="limparFiltroEtapas()"><i class="ti ti-x"></i> Limpar filtro</button>` : ''}
 </div>
+
+<!-- O restante da tabela permanece igual -->
 <div class="tbl-wrap">
 <table>
 <thead><tr>
@@ -1308,32 +1465,63 @@ function rcandsTotal() {
 </div>`;
 }
 
-function verCandidatosVaga(vid) { modalCandVagaId = vid; renderP(); }
+function verCandidatosVaga(vid) {
+  modalFeList = [];
+  modalTempFeList = [];
+  modalCandVagaId = vid;
+  renderP();
+}
 function mCandList(vid) {
   const v = vagas.find(v => v.id === vid);
   if (!v) return '';
-  const candsVaga = cands.filter(c => c.vid === vid);
+  let candsVaga = cands.filter(c => c.vid === vid);
+
+  // Ordenação por ID
+  candsVaga.sort((a, b) => {
+    const numA = parseInt(a.id.replace('C','')) || 0;
+    const numB = parseInt(b.id.replace('C','')) || 0;
+    return candSortOrder === 'desc' ? numB - numA : numA - numB;
+  });
   return `<div class="modal-bg" onclick="if(event.target.classList.contains('modal-bg'))fecharListaCand()">
-  <div class="modal modal-scroll" style="max-width:800px">
+  <div class="modal modal-scroll" style="max-width:1300px">
     <div class="modal-hdr"><h3>Candidatos da vaga: ${ec(v.cargo)} (${v.id})</h3><button class="ibtn" onclick="fecharListaCand()"><i class="ti ti-x"></i></button></div>
     <div style="margin-bottom:1rem; display:flex; gap:8px; align-items:center;">
       <button class="btn-add" onclick="novoCandParaVaga('${v.id}')"><i class="ti ti-plus"></i>Adicionar Candidato</button>
       <input type="text" id="filtro-nome-cand" class="fi" placeholder="Buscar por nome ou ID..." style="max-width:250px;" oninput="filtrarCandidatosNaVaga()">
-      <select id="filtro-etapa-cand" class="fi" onchange="filtrarCandidatosNaVaga()" style="max-width:200px;">
-        <option value="">Todas as etapas</option>
-        ${ETAPAS.map(e => `<option value="${e}">${e}</option>`).join('')}
-      </select>
+      <div style="position:relative; display:inline-block;">
+  <button type="button" id="btn-etapas-modal" class="btn-sec" onclick="toggleDropdownEtapasModal()">
+    <i class="ti ti-filter"></i> Etapas <span id="modal-etapa-count">${modalFeList.length > 0 ? `(${modalFeList.length})` : ''}</span>
+  </button>
+  <div id="dropdown-etapas-modal" style="position:absolute; top:100%; left:0; background:var(--surf); border:0.5px solid var(--border2); border-radius:var(--r); padding:8px; min-width:220px; z-index:100; display:none; height:338px; overflow-y:auto; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+    ${ETAPAS.map(e => `
+      <label style="display:flex; align-items:center; gap:6px; padding:4px 0; cursor:pointer; font-size:13px;">
+        <input type="checkbox" ${modalTempFeList.includes(e) ? 'checked' : ''} onchange="onCheckEtapaModal('${e.replace(/'/g, "\\'")}')" style="width:auto;">
+        <span class="pill ${eclsf(e)}">${e}</span>
+        <span style="margin-left:auto; font-size:11px; color:var(--tx3);">${candsVaga.filter(c => c.etapa === e).length}</span>
+      </label>
+    `).join('')}
+    <div style="margin-top:6px; display:flex; gap:4px;">
+      <button type="button" class="btn-sec" onclick="aplicarFiltroEtapasModal()" style="flex:1; justify-content: center;">Aplicar</button>
+    </div>
+  </div>
+</div>
+ <!-- Botão de ordenação -->
+  <button class="btn-sec" onclick="toggleCandSortOrder(); filtrarCandidatosNaVaga();" title="Alternar ordem dos IDs">
+    <i class="ti ti-arrow-${candSortOrder === 'desc' ? 'down' : 'up'}"></i> ID ${candSortOrder === 'desc' ? 'decrescente' : 'crescente'}
+  </button>
+<span id="modal-limpar-filtro-wrap">
+  ${modalFeList.length > 0 ? `<button class="btn-sec" onclick="limparFiltroEtapasModal()"><i class="ti ti-x"></i> Limpar filtro</button>` : ''}
+</span>
     </div>
     <div class="modal-body-scroll">
       <div class="tbl-wrap">
         <table id="tabela-candidatos-vaga">
-      <th>ID</th><th>Candidato</th><th>Posição</th><th>Telefone</th><th>Email</th><th>Etapa</th><th>Ações</th>
+      <th style="width:100px">ID</th><th style="width:280px">Candidato</th><th>Telefone</th><th>Email</th><th>Etapa</th><th>Ações</th>
     </tr></thead><tbody>
     ${candsVaga.length === 0 ? `<tr><td colspan="7"><div class="empty">Nenhum candidato nesta vaga</div></td></tr>` :
     candsVaga.map(c => `<tr data-nome="${c.nome.toLowerCase()}" data-id="${c.id.toLowerCase()}" data-etapa="${c.etapa.toLowerCase()}">
       <td><span class="td-id" style="color:#a78bfa">${c.id}</span></td>
       <td class="td-nome"><div style="display:flex;align-items:center;gap:7px"><div class="avatar" style="width:24px;height:24px;border-radius:6px;font-size:10px;background:${avbg(c.nome)};color:${avtx(c.nome)}">${initials(c.nome)}</div>${ec(c.nome)}</div></td>
-      <td>${c.posicao || '-'}</td>
       <td>
         <a href="${whatsappLink(c.tel)}" target="_blank" style="color: var(--tx); text-decoration: none; cursor: pointer; display: flex; align-items: center; gap: 6px;">
           <i class="ti ti-brand-whatsapp" style="color: #25D366; font-size: 16px;"></i>
@@ -1351,21 +1539,20 @@ function mCandList(vid) {
     </div>
   </div></div>`;
 }
+
 function fecharListaCand() { modalCandVagaId = null; renderP(); }
 function filtrarCandidatosNaVaga() {
   const input = document.getElementById('filtro-nome-cand');
-  const selectEtapa = document.getElementById('filtro-etapa-cand');
   const filterNome = input ? input.value.toLowerCase() : '';
-  const filterEtapa = selectEtapa ? selectEtapa.value : '';
   const table = document.getElementById('tabela-candidatos-vaga');
   if (!table) return;
   const rows = table.querySelectorAll('tbody tr[data-nome]');
   rows.forEach(row => {
     const nome = row.getAttribute('data-nome');
     const id = row.getAttribute('data-id');
-    const etapa = row.getAttribute('data-etapa');
+    const etapa = row.getAttribute('data-etapa'); // já está em minúsculo
     const matchNome = (!filterNome || nome.includes(filterNome) || id.includes(filterNome));
-    const matchEtapa = (!filterEtapa || etapa === filterEtapa.toLowerCase());
+    const matchEtapa = modalFeList.length === 0 || modalFeList.map(e => e.toLowerCase()).includes(etapa);
     row.style.display = (matchNome && matchEtapa) ? '' : 'none';
   });
 }
@@ -1476,13 +1663,13 @@ function rVagasCriadas() {
   </select>
 </div>
 <div class="card" style="margin-bottom:1.5rem">
-  <div class="card-title">📋 Todas as Vagas Cadastradas</div>
+  <div class="card-title"><i class="ti ti-clipboard-list"></i> Todas as Vagas Cadastradas</div>
   <div class="tbl-wrap"><table><thead><tr>
     <th>ID</th><th>Cargo</th><th>Empresa</th><th>Local</th><th>Abertura</th><th>Vagas</th><th>Priorid.</th><th>Status</th><th>Ações</th>
   </tr></thead><tbody>${tabelaTodas(filt)}</tbody></table></div>
 </div>
 <div class="card">
-  <div class="card-title">🔓 Vagas Abertas (Aberta / Em Andamento)</div>
+  <div class="card-title"><i class="ti ti-lock-open"></i> Vagas Abertas (Aberta / Em Andamento)</div>
   <div class="tbl-wrap"><table><thead><tr>
     <th>ID</th><th>Cargo</th><th>Empresa</th><th>Local</th><th>Posições (abertas/total)</th><th>Priorid.</th><th>Status</th>
   </tr></thead><tbody>${tabelaAbertas(vagasAbertas)}</tbody></table></div>
@@ -1518,7 +1705,7 @@ function rSolicitacoesVagas() {
 
   return `
 <div class="card" style="margin-top:1rem;">
-  <div class="card-title">📋 Solicitações de Abertura de Vaga</div>
+  <div class="card-title"><i class="ti ti-clipboard-list"></i> Solicitações de Abertura de Vaga</div>
   <div class="tbl-wrap">
     <table>
       <thead><tr>
@@ -1537,38 +1724,45 @@ function verDetalhesSolicitacao(id) {
   const gmodal = document.getElementById('gmodal');
   gmodal.style.display = 'flex';
   gmodal.innerHTML = `
-    <div class="modal-bg" onclick="document.getElementById('gmodal').style.display='none'">
-      <div class="modal" style="max-width:500px">
-        <div class="modal-hdr">
+    <div class="modal-bg" onclick="if(event.target.classList.contains('modal-bg'))document.getElementById('gmodal').style.display='none'">
+      <div class="modal" style="max-width:500px; display:flex; flex-direction:column; max-height:90vh;">
+        <!-- Cabeçalho fixo -->
+        <div class="modal-hdr" style="flex-shrink:0;">
           <h3>Solicitação de Vaga</h3>
           <button class="ibtn" onclick="document.getElementById('gmodal').style.display='none'"><i class="ti ti-x"></i></button>
         </div>
-        <div style="display:flex;flex-direction:column;gap:12px;">
-          <div><strong>Empresa:</strong> ${ec(sol.empresa)}</div>
-          <div><strong>Localização:</strong> ${ec(sol.local)}</div>
-          <div><strong>Cargo:</strong> ${ec(sol.cargo)}</div>
-          <div><strong>Quantidade:</strong> ${sol.qtd}</div>
-          <div><strong>Prioridade:</strong> <span class="pill ${pcls(sol.pri)}">${sol.pri}</span></div>
-          <div><strong>Solicitante:</strong> ${(() => {
-            const user = USERS.find(u => u.email === sol.solicitante);
-            return ec(user ? user.name : (sol.solicitante?.split('@')[0] || '-'));
-          })()}</div>
-          <div><strong>Data:</strong> ${new Date(sol.data).toLocaleDateString('pt-BR')}</div>
-          <div><strong>Observações:</strong> ${ec(sol.obs || '-')}</div>
-          ${sol.criterios && sol.criterios.length > 0 ? `
-          <div><strong>Critérios:</strong>
-            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
-              ${sol.criterios.map(c => `<span class="pill" style="background:#E6F1FB;color:#0C447C;">${ec(c)}</span>`).join('')}
-            </div>
-          </div>` : ''}
-          ${sol.perguntas && sol.perguntas.length > 0 ? `
-          <div><strong>Perguntas adicionais:</strong>
-            <ul style="margin-top:4px;padding-left:20px;">
-              ${sol.perguntas.map(p => `<li style="margin-bottom:4px;">${ec(p)}</li>`).join('')}
-            </ul>
-          </div>` : ''}
+
+        <!-- Área com scroll -->
+        <div style="flex:1; overflow-y:auto; padding-right:4px;" class="modal-body-scroll">
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div><strong>Empresa:</strong> ${ec(sol.empresa)}</div>
+            <div><strong>Localização:</strong> ${ec(sol.local)}</div>
+            <div><strong>Cargo:</strong> ${ec(sol.cargo)}</div>
+            <div><strong>Quantidade:</strong> ${sol.qtd}</div>
+            <div><strong>Prioridade:</strong> <span class="pill ${pcls(sol.pri)}">${sol.pri}</span></div>
+            <div><strong>Solicitante:</strong> ${(() => {
+              const user = USERS.find(u => u.email === sol.solicitante);
+              return ec(user ? user.name : (sol.solicitante?.split('@')[0] || '-'));
+            })()}</div>
+            <div><strong>Data:</strong> ${new Date(sol.data).toLocaleDateString('pt-BR')}</div>
+            <div><strong>Observações:</strong> ${ec(sol.obs || '-')}</div>
+            ${sol.criterios && sol.criterios.length > 0 ? `
+            <div><strong>Critérios:</strong>
+              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
+                ${sol.criterios.map(c => `<span class="pill" style="background:#E6F1FB;color:#0C447C;">${ec(c)}</span>`).join('')}
+              </div>
+            </div>` : ''}
+            ${sol.perguntas && sol.perguntas.length > 0 ? `
+            <div><strong>Perguntas adicionais:</strong>
+              <ul style="margin-top:4px;padding-left:20px;">
+                ${sol.perguntas.map(p => `<li style="margin-bottom:4px;">${ec(p)}</li>`).join('')}
+              </ul>
+            </div>` : ''}
+          </div>
         </div>
-        <div class="modal-acts">
+
+        <!-- Botões fixos -->
+        <div class="modal-acts" style="flex-shrink:0;">
           <button class="btn-sec" onclick="document.getElementById('gmodal').style.display='none'">Fechar</button>
           <button class="btn-add" onclick="criarVagaDeSolicitacao('${sol.id}')"><i class="ti ti-plus"></i> Criar vaga</button>
         </div>
@@ -1650,6 +1844,61 @@ function whatsappLink(num) {
   const numeroLimpo = num.replace(/\D/g, '');
   // Retorna o link para abrir o WhatsApp
   return `https://wa.me/55${numeroLimpo}`;
+}
+
+//==========================
+function toggleDropdownEtapasModal() {
+  const dd = document.getElementById('dropdown-etapas-modal');
+  if (!dd) return;
+  if (dd.style.display === 'block') {
+    dd.style.display = 'none';
+    modalTempFeList = [...modalFeList];
+    return;
+  }
+  modalTempFeList = [...modalFeList];
+  dd.style.display = 'block';
+  const handler = (e) => {
+    if (!dd.contains(e.target) && e.target.id !== 'btn-etapas-modal') {
+      dd.style.display = 'none';
+      modalTempFeList = [...modalFeList];
+      document.removeEventListener('click', handler);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', handler), 10);
+}
+
+function onCheckEtapaModal(etapa) {
+  const idx = modalTempFeList.indexOf(etapa);
+  if (idx > -1) modalTempFeList.splice(idx, 1);
+  else modalTempFeList.push(etapa);
+}
+
+function aplicarFiltroEtapasModal() {
+  modalFeList = [...modalTempFeList];
+  const dd = document.getElementById('dropdown-etapas-modal');
+  if (dd) dd.style.display = 'none';
+  updateModalFilterUI();
+  filtrarCandidatosNaVaga();
+}
+
+function limparFiltroEtapasModal() {
+  modalFeList = [];
+  modalTempFeList = [];
+  const dd = document.getElementById('dropdown-etapas-modal');
+  if (dd) dd.style.display = 'none';
+  updateModalFilterUI();
+  filtrarCandidatosNaVaga();
+}
+
+function updateModalFilterUI() {
+  const countSpan = document.getElementById('modal-etapa-count');
+  if (countSpan) countSpan.textContent = modalFeList.length > 0 ? `(${modalFeList.length})` : '';
+  const limparWrap = document.getElementById('modal-limpar-filtro-wrap');
+  if (limparWrap) {
+    limparWrap.innerHTML = modalFeList.length > 0 
+      ? `<button class="btn-sec" onclick="limparFiltroEtapasModal()"><i class="ti ti-x"></i> Limpar filtro</button>` 
+      : '';
+  }
 }
 
 // ========== MODAIS DE FORMULÁRIO ==========
@@ -1792,12 +2041,12 @@ function mCand() {
   const showJustificativa = ie && (c.etapa === 'Reprovado');
 
   return `<div class="modal-bg" onclick="if(event.target.classList.contains('modal-bg'))closeM()">
-    <div class="modal" style="display:flex; flex-direction:column; max-height:85vh;">
-      <div class="modal-hdr">
+    <div class="modal" style="display:flex; flex-direction:column; max-height:90vh; max-width:650px;">
+      <div class="modal-hdr" style="flex-shrink:0;">
         <h3>${ie ? 'Editar candidato' : 'Novo candidato'}</h3>
         <button class="ibtn" onclick="closeM()"><i class="ti ti-x"></i></button>
       </div>
-      <div style="flex:1; overflow-y:auto; padding-right:4px;">
+      <div style="flex:1; overflow-y:auto; padding-right:4px;" class="modal-body-scroll">
       <div class="fgrid">
         <div class="fg"><label>ID</label><input id="ci-id" value="${ec(c.id||nxtC())}" readonly></div>
         <div class="fg"><label>ID da vaga</label>${vagaSearchHTML}</div>
@@ -1809,22 +2058,27 @@ function mCand() {
         <div class="fg"><label>Email</label><input id="ci-em" value="${ec(c.email||'')}" ${disabledAttr}></div>
         <div class="fg full"><label>Observações</label><textarea id="ci-ob" ${disabledAttr}>${ec(c.obs||'')}</textarea></div>
         <div class="fg full"><label>Etapa</label><select id="ci-et" onchange="toggleJustificativa()" ${disabledAttr}>${ETAPAS.map(e=>`<option ${(c.etapa||'Triagem')===e?'selected':''}>${e}</option>`).join('')}</select></div>
-        <div class="fg full" id="fg-justificativa" style="display:${showJustificativa ? 'flex' : 'none'}">
-          <label>Justificativa de desistência</label>
-          <select id="ci-justificativa" onchange="toggleJustificativaOutro()" ${disabledAttr}>
+       <div class="fg full" id="fg-justificativa" style="display:${showJustificativa ? 'flex' : 'none'}">
+        <label>Motivo da reprovação</label>
+        <select id="ci-motivo1" onchange="atualizarMotivo2()" ${disabledAttr}>
+          <option value="">Selecione...</option>
+          ${MOTIVOS_REPROVACAO.map(m => `<option ${(c.justificativa||'').startsWith(m) ? 'selected' : ''}>${m}</option>`).join('')}
+        </select>
+
+        <div id="fg-motivo2" style="display:none; margin-top:10px; flex-direction:column;">
+          <label>Detalhamento</label>
+          <select id="ci-motivo2" ${disabledAttr}>
             <option value="">Selecione...</option>
-            ${JUSTIFICATIVAS.map(j => `<option ${c.justificativa===j?'selected':''}>${j}</option>`).join('')}
           </select>
-          <div id="fg-justificativa-outro" style="display:${c.justificativa==='Outros'?'flex':'none'};margin-top:5px;">
-            <input id="ci-justificativa-outro-txt" placeholder="Especifique..." value="${ec(c.justificativa_outro||'')}" ${disabledAttr}>
-          </div>
-          <div style="margin-top:10px; display:flex; align-items:center; gap:8px;">
-            <input type="checkbox" id="ci-envio-reprovacao" ${c.envioReprovacao ? 'checked' : ''} style="width:auto; cursor:pointer;">
-            <label for="ci-envio-reprovacao" style="cursor:pointer; text-transform:none; font-weight:400; font-size:13px; color:var(--tx);">
-              Envio de reprovação realizado
-            </label>
-          </div>
-          </div>
+        </div>
+
+        <div style="margin-top:10px; display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="ci-envio-reprovacao" ${c.envioReprovacao ? 'checked' : ''} style="width:auto; cursor:pointer;">
+          <label for="ci-envio-reprovacao" style="cursor:pointer; text-transform:none; font-weight:400; font-size:13px; color:var(--tx);">
+            Envio de reprovação realizado
+          </label>
+        </div>
+        </div>
         </div>
       ${c.historico && c.historico.length > 0 ? `
         <div class="fg full" style="margin-top:8px;">
@@ -1838,12 +2092,57 @@ function mCand() {
             </table>
           </div>
         </div>` : ''}
-      <div class="modal-acts">
+      <div class="modal-acts" style="flex-shrink:0;">
         <button class="btn-sec" onclick="closeM()">Cancelar</button>
         ${userProfile === 'RH' ? `<button class="btn-add" onclick="svC(${ie})"><i class="ti ti-check"></i>${ie?'Salvar':'Cadastrar'}</button>` : ''}
       </div>
     </div>
   </div>`;
+}
+
+//========= funções auxiliares para o modal de candidato ==========
+
+function initMotivo2AfterRender() {
+  const motivo1 = document.getElementById('ci-motivo1');
+  if (motivo1 && motivo1.value) {
+    atualizarMotivo2();
+  }
+}
+
+function atualizarMotivo2() {
+  const motivo1 = document.getElementById('ci-motivo1')?.value;
+  const divMotivo2 = document.getElementById('fg-motivo2');
+  const selectMotivo2 = document.getElementById('ci-motivo2');
+  if (!divMotivo2 || !selectMotivo2) return;
+
+  // Limpa opções anteriores
+  selectMotivo2.innerHTML = '<option value="">Selecione...</option>';
+
+  const sub = SUBMOTIVOS[motivo1] || [];
+  if (sub.length > 0) {
+    sub.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s;
+      opt.textContent = s;
+      // Se já existir justificativa anterior, tenta marcar o submotivo correto
+      const justificativaAtual = (eid ? cands.find(c => c.id === eid)?.justificativa : '') || '';
+      const esperado = `${motivo1} - ${s}`;
+      if (justificativaAtual === esperado) opt.selected = true;
+      selectMotivo2.appendChild(opt);
+    });
+    divMotivo2.style.display = 'flex';
+  } else {
+    divMotivo2.style.display = 'none';
+  }
+}
+
+function toggleJustificativa() {
+  const etapa = document.getElementById('ci-et')?.value;
+  const divJust = document.getElementById('fg-justificativa');
+  if (divJust) {
+    divJust.style.display = etapa === 'Reprovado' ? 'flex' : 'none';
+    if (etapa === 'Reprovado') atualizarMotivo2(); // inicializa motivo2 se necessário
+  }
 }
 
 function toggleJustificativa() {
@@ -1873,7 +2172,15 @@ function openM(t) {
 }
 function closeM() { modal = null; eid = null; _preSelectedVid = null; renderP(); }
 function editV(id) { eid = id; modal = 'vaga'; renderP(); }
-function editC(id) { eid = id; modal = 'cand'; renderP(); }
+function editC(id) { 
+  eid = id; 
+  modal = 'cand'; 
+  renderP(); 
+  // Aguarda o DOM ser atualizado e inicializa o motivo2
+  requestAnimationFrame(() => {
+    requestAnimationFrame(initMotivo2AfterRender);
+  });
+}
 
 async function delV(id) {
   showConfirm('Remover esta vaga e todos os seus candidatos?', async () => {
@@ -2035,8 +2342,14 @@ async function svC(ie) {
   const oldC = ie ? cands.find(c => c.id === id) : null;
 
   // Justificativa
-  const justificativaSel = document.getElementById('ci-justificativa')?.value || null;
-  const justificativa_outro = justificativaSel === 'Outros' ? (document.getElementById('ci-justificativa-outro-txt')?.value || '') : '';
+  const motivo1 = document.getElementById('ci-motivo1')?.value || '';
+  const motivo2 = document.getElementById('ci-motivo2')?.value || '';
+  let justificativaSel = null;
+  if (motivo1) {
+    justificativaSel = motivo2 ? `${motivo1} - ${motivo2}` : motivo1;
+  }
+  // justificativa_outro pode ser mantida vazia ou removida; vamos mantê-la como string vazia
+  const justificativa_outro = '';
 
   // Se for edição e mudou de Contratado para outra etapa, libera posição
   if (ie && oldC.etapa === 'Contratado' && etapa !== 'Contratado') {
@@ -2058,13 +2371,41 @@ async function svC(ie) {
     }
   }
 
+  const telLimpo = document.getElementById('ci-tl').value.replace(/\D/g, '');
+  const nome = document.getElementById('ci-nm').value.trim();
+  const email = document.getElementById('ci-em').value;
+  const obs = document.getElementById('ci-ob').value;
+
+  // ========== VERIFICAÇÃO DE DUPLICIDADE (apenas para novos candidatos) ==========
+  if (!ie) {
+    // Busca candidatos com o mesmo telefone (campo único)
+    const snapshot = await db.collection('candidatos')
+      .where('tel', '==', telLimpo)
+      .get();
+
+    if (!snapshot.empty) {
+      // Verifica se algum dos candidatos encontrados já está na mesma vaga
+      const mesmoVaga = snapshot.docs.find(doc => doc.data().vid === vid);
+      if (mesmoVaga) {
+        showToast(`Este candidato já está cadastrado nesta vaga. ID: ${mesmoVaga.id}.`);
+        return; // bloqueia o cadastro na mesma vaga
+      } else {
+        // Encontrado em outra vaga – apenas avisa e continua
+        const outro = snapshot.docs[0].data();
+        const vagaOutro = vagas.find(v => v.id === outro.vid);
+        const nomeVaga = vagaOutro ? vagaOutro.cargo : outro.vid;
+        showToast(`Candidato já cadastrado na base. ID ${outro.id}, vaga ${outro.vid} - ${nomeVaga}.`);
+      }
+    }
+  }
+
   const o = {
     id, vid, origem, origem_txt,
     data_cand: document.getElementById('ci-dt').value,
-    nome: document.getElementById('ci-nm').value.trim(),
-    tel: document.getElementById('ci-tl').value.replace(/\D/g, ''),
-    email: document.getElementById('ci-em').value,
-    obs: document.getElementById('ci-ob').value,
+    nome,
+    tel: telLimpo,
+    email,
+    obs,
     etapa,
     posicao: etapa === 'Contratado' ? posicao : null,
     justificativa: justificativaSel,
@@ -2234,42 +2575,49 @@ function showSolicitarVagaModal() {
   const gmodal = document.getElementById('gmodal');
   gmodal.style.display = 'flex';
   gmodal.innerHTML = `
-    <div class="modal-bg">
-      <div class="modal" style="max-width:500px">
-        <div class="modal-hdr">
+    <div class="modal-bg" onclick="if(event.target.classList.contains('modal-bg'))document.getElementById('gmodal').style.display='none'">
+      <div class="modal" style="max-width:500px; display:flex; flex-direction:column; max-height:90vh;">
+        <div class="modal-hdr" style="flex-shrink:0;">
           <h3>Solicitar Abertura de Vaga</h3>
           <button class="ibtn" onclick="document.getElementById('gmodal').style.display='none'"><i class="ti ti-x"></i></button>
         </div>
-        <div class="fgrid">
-          <div class="fg"><label>Empresa</label><select id="sol-empresa">${EMPRESAS.map(e => `<option>${e}</option>`).join('')}</select></div>
-          <div class="fg"><label>Localização</label><select id="sol-local">${LOCAIS.map(l => `<option>${l}</option>`).join('')}</select></div>
-          <div class="fg"><label>Cargo</label><input id="sol-cargo" placeholder="Ex: Analista de TI"></div>
-          <div class="fg"><label>Quantidade</label><input type="number" id="sol-qtd" min="1" value="1"></div>
-          <div class="fg"><label>Prioridade</label><select id="sol-pri">${PRIS.map(p => `<option>${p}</option>`).join('')}</select></div>
-          <div class="fg full"><label>Observações</label><textarea id="sol-obs" placeholder="Descreva o motivo da solicitação..."></textarea></div>
 
-          <!-- Perguntas adicionais (NOVO) -->
-          <div class="fg full" style="margin-top:8px;">
-            <label>Perguntas adicionais</label>
-            <div style="display:flex;gap:8px;">
-              <input type="text" id="sol-pergunta-txt" placeholder="Digite uma pergunta para a entrevista...">
-              <button type="button" class="btn-sec" onclick="adicionarPerguntaSol()" style="white-space:nowrap;"><i class="ti ti-plus"></i> Adicionar</button>
-            </div>
-            <ul id="sol-perguntas-lista" style="list-style:none;display:flex;flex-direction:column;gap:6px;margin-top:8px;"></ul>
-            <input type="hidden" id="sol-perguntas-hidden" value="">
-          </div>
+        <!-- Área com scroll -->
+        <div style="flex:1; overflow-y:auto; padding-right:4px;" class="modal-body-scroll">
+          <div class="fgrid">
+            <div class="fg"><label>Empresa</label><select id="sol-empresa">${EMPRESAS.map(e => `<option>${e}</option>`).join('')}</select></div>
+            <div class="fg"><label>Localização</label><select id="sol-local">${LOCAIS.map(l => `<option>${l}</option>`).join('')}</select></div>
+            <div class="fg"><label>Cargo</label><input id="sol-cargo" placeholder="Ex: Analista de TI"></div>
+            <div class="fg"><label>Quantidade</label><input type="number" id="sol-qtd" min="1" value="1"></div>
+            <div class="fg"><label>Prioridade</label><select id="sol-pri">${PRIS.map(p => `<option>${p}</option>`).join('')}</select></div>
+            <div class="fg full"><label>Observações</label><textarea id="sol-obs" placeholder="Descreva o motivo da solicitação..."></textarea></div>
 
-          <div class="fg full" style="margin-top:8px;">
-            <label>Critérios</label>
-            <div style="display:flex;gap:8px;">
-              <input type="text" id="sol-criterio-txt" placeholder="Digite um critério...">
-              <button type="button" class="btn-sec" onclick="adicionarCriterioSol()" style="white-space:nowrap;"><i class="ti ti-plus"></i> Adicionar</button>
+            <!-- Perguntas adicionais -->
+            <div class="fg full" style="margin-top:8px;">
+              <label>Perguntas adicionais</label>
+              <div style="display:flex;gap:8px;">
+                <input type="text" id="sol-pergunta-txt" placeholder="Digite uma pergunta para a entrevista...">
+                <button type="button" class="btn-sec" onclick="adicionarPerguntaSol()" style="white-space:nowrap;"><i class="ti ti-plus"></i> Adicionar</button>
+              </div>
+              <ul id="sol-perguntas-lista" style="list-style:none;display:flex;flex-direction:column;gap:6px;margin-top:8px;"></ul>
+              <input type="hidden" id="sol-perguntas-hidden" value="">
             </div>
-            <ul id="sol-criterios-lista" style="list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></ul>
-            <input type="hidden" id="sol-criterios-hidden" value="">
+
+            <!-- Critérios -->
+            <div class="fg full" style="margin-top:8px;">
+              <label>Critérios</label>
+              <div style="display:flex;gap:8px;">
+                <input type="text" id="sol-criterio-txt" placeholder="Digite um critério...">
+                <button type="button" class="btn-sec" onclick="adicionarCriterioSol()" style="white-space:nowrap;"><i class="ti ti-plus"></i> Adicionar</button>
+              </div>
+              <ul id="sol-criterios-lista" style="list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></ul>
+              <input type="hidden" id="sol-criterios-hidden" value="">
+            </div>
           </div>
         </div>
-        <div class="modal-acts">
+
+        <!-- Botões fixos no rodapé -->
+        <div class="modal-acts" style="flex-shrink:0;">
           <button class="btn-sec" onclick="document.getElementById('gmodal').style.display='none'">Cancelar</button>
           <button class="btn-add" onclick="solicitarVaga()"><i class="ti ti-send"></i> Solicitar</button>
         </div>
@@ -2361,23 +2709,26 @@ async function initApp() {
     loadFromLocalStorage(); 
   }
   const app = document.getElementById('app');
+  const userName = USERS.find(u => u.email === currentUser.email)?.name || 'Usuário';
+  
   app.innerHTML = `
-    <div class="topbar">
-      <div class="logo-mark"><i class="ti ti-users-group"></i></div>
-      <div><div class="logo-text">Recrutamento & Seleção</div><div class="logo-sub">Santorini & Netz</div></div>
-      <div class="nav">
-        <button class="nav-btn active" onclick="nav('dashboard')"><i class="ti ti-layout-dashboard"></i>Dashboard</button>
-        <button class="nav-btn" onclick="nav('vagas')"><i class="ti ti-briefcase"></i>Vagas</button>
-        <button class="nav-btn" onclick="nav('candidatos')"><i class="ti ti-user-check"></i>Candidatos</button>
-        <button class="nav-btn" onclick="nav('consolidado')"><i class="ti ti-chart-bar"></i>Consolidado</button>
+      <div class="topbar">
+        <div class="logo-mark"><i class="ti ti-users-group"></i></div>
+        <div><div class="logo-text">Recrutamento & Seleção</div><div class="logo-sub">Santorini & Netz</div></div>
+        <div class="nav">
+          <button class="nav-btn active" onclick="nav('dashboard')"><i class="ti ti-layout-dashboard"></i>Dashboard</button>
+          <button class="nav-btn" onclick="nav('vagas')"><i class="ti ti-briefcase"></i>Vagas</button>
+          <button class="nav-btn" onclick="nav('candidatos')"><i class="ti ti-user-check"></i>Candidatos</button>
+          <button class="nav-btn" onclick="nav('consolidado')"><i class="ti ti-chart-bar"></i>Consolidado</button>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px; margin-left:auto;">
+          <span style="color:#e5e7eb; font-size:13px; font-weight:500; margin:0px 6px 0px 0px;"><i class="ti ti-user-hexagon" style="color: #a8e89b; font-size:16px;"></i> ${userName}</span>
+          <button class="user-btn" onclick="openChangePasswordModal()" style="margin:0px 6px 0px 0px;"><i style="color:#cdcf7c" class="ti ti-key"></i> Alterar senha</button>
+          <button class="user-btn" onclick="logout()" style="margin:0px 6px 0px -15px;"><i style="color:red" class="ti ti-logout"></i> Sair</button>
+        </div>
       </div>
-      <div class="user-area">
-        <button class="user-btn" onclick="openChangePasswordModal()"><i style="color:#cdcf7c" class="ti ti-key"></i> Alterar senha</button>
-        <button class="user-btn" onclick="logout()"><i style="color:red" class="ti ti-logout"></i> Sair</button>
-      </div>
-    </div>
-    <div class="content" id="mc"></div>
-  `;
+      <div class="content" id="mc"></div>
+    `;
   render();
 }
 
