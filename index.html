@@ -283,7 +283,6 @@ tr:hover td { background: var(--surf2); }
 .s-cancelada { background: #F1EFE8; color: #444441; }
 
 .e-triagem { background: #EEEDFE; color: #3C3489; }
-.e-teste { background: #E0F2FE; color: #0C4A6E; }
 .e-rh { background: #E6F1FB; color: #0C447C; }
 .e-tecnica { background: #FAEEDA; color: #633806; }
 .e-gestor { background: #FAECE7; color: #712B13; }
@@ -291,6 +290,9 @@ tr:hover td { background: var(--surf2); }
 .e-admissao { background: #D1FAE5; color: #065F46; } 
 .e-contratado { background: #EAF3DE; color: #27500A; }
 .e-reprovado { background: #FCEBEB; color: #791F1F; }
+.e-teste { background: #E0F2FE; color: #0C4A6E; }
+.e-diretor { background: #FCE4EC; color: #880E4F; }
+.e-extra { background: #EDE7F6; color: #311B92; }
 
 .modal-bg {position: fixed;top: 0; left: 0; right: 0; bottom: 0;background: rgba(0, 0, 0, 0.45);backdrop-filter: blur(8px);-webkit-backdrop-filter: blur(8px); /* Safari */display: flex;align-items: center;justify-content: center;z-index: 1000;padding: 2rem 1rem; font-family:'DM Sans', sans-serif;}
 .modal { background: var(--surf); border-radius: var(--r2); border: 0.5px solid var(--border); padding: 1.5rem; width: 100%; max-width: 560px; }
@@ -832,7 +834,19 @@ function ec(s) { return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/
 function pcls(p) { return p === 'Alta' ? 'p-alta' : p === 'Média' ? 'p-media' : 'p-baixa'; }
 function scls(s) { return s === 'Aberta' ? 's-aberta' : s === 'Em Andamento' ? 's-andamento' : s === 'Preenchida' ? 's-preenchida' : 's-congelada'; } // ALTERADO
 function eclsf(e) {
-  const m = { 'Triagem':'e-triagem', 'Teste lógico':'e-teste', 'Entrevista RH':'e-rh', 'Entrevista Técnica':'e-tecnica', 'Entrevista Gestor':'e-gestor', 'Proposta':'e-proposta','Admissão':'e-admissao','Contratado':'e-contratado', 'Reprovado':'e-reprovado' };
+  const m = { 
+    'Triagem':'e-triagem', 
+    'Teste':'e-teste', 
+    'Entrevista RH':'e-rh', 
+    'Entrevista Técnica':'e-tecnica', 
+    'Entrevista Gestor':'e-gestor', 
+    'Entrevista Diretor':'e-diretor', 
+    'Entrevista Extra':'e-extra', 
+    'Proposta':'e-proposta',
+    'Admissão':'e-admissao',
+    'Contratado':'e-contratado', 
+    'Reprovado':'e-reprovado' 
+  };
   return m[e] || 'e-triagem';
 }
 function initials(n) { return n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
@@ -917,8 +931,19 @@ function render() {
   else if (page === 'consolidado') mc.innerHTML = rconsol();
 }
 
-const etapaColors = { 'Triagem':'#7F77DD','Teste lógico':'#678091' ,'Entrevista RH':'#4f8ef7', 'Entrevista Técnica':'#EF9F27', 'Entrevista Gestor':'#f720f4', 'Proposta':'#1D9E75','Admissão':'#065F46' ,'Contratado':'#639922', 'Reprovado':'#E24B4A' };
-
+const etapaColors = { 
+  'Triagem':'#7F77DD', 
+  'Teste':'#4BACC6',           // nova cor, ou mantenha '#678091' 
+  'Entrevista RH':'#4f8ef7', 
+  'Entrevista Técnica':'#EF9F27', 
+  'Entrevista Gestor':'#f720f4', 
+  'Entrevista Diretor':'#D81B60', // novo
+  'Entrevista Extra':'#7E57C2',   // novo
+  'Proposta':'#1D9E75',
+  'Admissão':'#065F46',
+  'Contratado':'#639922', 
+  'Reprovado':'#E24B4A' 
+};
 function rdash() {
   const vagasVisiveis = getVisibleVagas();
   const candsVisiveis = getVisibleCands();
