@@ -285,7 +285,7 @@ tr:hover td { background: var(--surf2); }
 .e-triagem { background: #EEEDFE; color: #3C3489; }
 .e-rh { background: #E6F1FB; color: #0C447C; }
 .e-tecnica { background: #FAEEDA; color: #633806; }
-.e-gestor { background: #FAECE7; color: #712B13; }
+.e-gestor { background: #fff1ff; color: #762e80; }
 .e-proposta { background: #E1F5EE; color: #085041; }
 .e-admissao { background: #D1FAE5; color: #065F46; } 
 .e-contratado { background: #EAF3DE; color: #27500A; }
@@ -301,10 +301,11 @@ tr:hover td { background: var(--surf2); }
 .fgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .fg { display: flex; flex-direction: column; gap: 5px; }
 .fg.full { grid-column: 1 / -1; }
-label { font-size: 11px; font-weight: 500; color: var(--tx2); text-transform: uppercase; letter-spacing: 0.04em; }
+label { font-size: 11px; font-weight: 500; color: var(--tx2); text-transform: uppercase; letter-spacing: 0.04em;}
 input, select, textarea { padding: 8px 10px; border: 0.5px solid var(--border2); border-radius: var(--r); font-size: 13px; background: var(--surf); color: var(--tx); width: 100%; font-family: 'DM Sans', sans-serif; }
 input:focus, select:focus, textarea:focus { outline: none; border-color: #4f8ef7; }
-textarea { resize: vertical; min-height: 70px; }
+select{cursor: pointer;}
+textarea { resize: none; min-height: 70px; }
 .modal-acts { display: flex; gap: 8px; justify-content: flex-end; margin-top: 1.25rem; padding-top: 1rem; border-top: 0.5px solid var(--border); }
 .empty { padding: 2rem; text-align: center; color: var(--tx2); font-size: 13px; }
 .stat-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 0.5px solid var(--border); }
@@ -545,6 +546,8 @@ const USERS = [
   { name: 'César', email: 'cesar@santorini.com', role: 'Gestor' },
   { name: 'Daniela', email: 'daniela@santorini.com', role: 'Gestor' },
   { name: 'Nayara', email: 'nayara@santorini.com', role: 'Gestor' },
+  { name: 'Fábio', email: 'fabio@santorini.com', role: 'Gestor' },     // ← NOVO
+  { name: 'Marcelo', email: 'marcelo@santorini.com', role: 'Gestor' }   // ← NOVO
   // Kamila também pode ser gestora? Se quiser que ela acesse como gestora, adicione:
   // { name: 'Kamila', email: 'kamila@santorini.com', role: 'Gestor' }, 
   // mas o ideal seria usar outro email para não conflitar. Vou manter só como RH.
@@ -568,12 +571,20 @@ function getVisibleCands() {
 
 // ========== DADOS ==========
 const ETAPAS = ['Triagem', 'Entrevista RH', 'Teste','Entrevista Gestor','Entrevista Diretor', 'Entrevista Extra', 'Proposta','Admissão','Contratado','Reprovado'];
-const PRIS = ['Baixa','Média','Alta'];
+const PRIS = ['Selecione','Baixa','Média','Alta'];
 const STATS = ['Aberta','Em Andamento','Preenchida','Congelada'];  // ALTERADO
-const EMPRESAS = ['Energia','Engenharia','GD','Netz'];
-const LOCAIS = ['PRPB','SGS','POA','SP','Minduri','BH','Alfenas'];
+const EMPRESAS = ['Selecione','Energia','Engenharia','GD','Netz'];
+const LOCAIS = ['Selecione','PRPB','SGS','POA','SP','Minduri','BH','Alfenas'];
 const ORIGENS = ['E-mail','LinkedIn','Indeed','Indicação','Outro'];
 const JUSTIFICATIVAS = ['Problemas familiares','Distância', 'Desistiu', 'Problemas Pessoais','Outra empresa','Gestor dispensou','Não compareceu','Não tem perfil','Vagas Híbridas','Outros'];
+const REQUISITOS_SOL = [
+  'Disponibilidade para viajar',
+  'Disponibilidade de trabalho noturno',
+  'CNH Ativa',
+  'NR10 válida',
+  'NR35 válida',
+  'Certificado de eletricista'
+];
 
 let vagas = [];
 let cands = [];
@@ -936,7 +947,7 @@ const etapaColors = {
   'Teste':'#4BACC6',           // nova cor, ou mantenha '#678091' 
   'Entrevista RH':'#4f8ef7', 
   'Entrevista Técnica':'#EF9F27', 
-  'Entrevista Gestor':'#f720f4', 
+  'Entrevista Gestor':'#ff8cfd', 
   'Entrevista Diretor':'#D81B60', // novo
   'Entrevista Extra':'#7E57C2',   // novo
   'Proposta':'#1D9E75',
@@ -1427,10 +1438,10 @@ filtrados.sort((a, b) => {
           <td><span class="td-id" style="color:#a78bfa; width:60px">${c.id}</span></td>
           <td  class="td-nome"><div style="display:flex;align-items:center;gap:7px"><div class="avatar" style="width:24px;height:24px;border-radius:6px;font-size:10px;background:${avbg(c.nome)};color:${avtx(c.nome)}">${initials(c.nome)}</div>${ec(c.nome)}</div></td>
           <td>${c.vid} ${v ? '– ' + ec(v.cargo) : ''}</td>
-          <td>
-            <a href="${whatsappLink(c.tel)}" target="_blank" style="color: var(--tx); text-decoration: none; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-              <i class="ti ti-brand-whatsapp" style="color: #25D366; font-size: 16px;"></i>
-              ${formatTel(c.tel)}
+          <td style="white-space: nowrap;">
+            <span style="user-select: text; cursor: text;">${formatTel(c.tel)}</span>
+            <a href="${whatsappLink(c.tel)}" target="_blank" style="color: #25D366; text-decoration: none; margin-left: 6px; vertical-align: middle;" title="Abrir WhatsApp">
+              <i class="ti ti-brand-whatsapp" style="font-size: 16px;"></i>
             </a>
           </td>
           <td style="font-size:11px;color:var(--tx2)">${ec(c.email)}</td>
@@ -1491,15 +1502,21 @@ filtrados.sort((a, b) => {
 }
 
 function verCandidatosVaga(vid) {
-  modalFeList = [];
-  modalTempFeList = [];
+  // Se for uma vaga diferente da atual, reseta os filtros
+  if (modalCandVagaId !== vid) {
+    modalFeList = [];
+    modalTempFeList = [];
+  }
   modalCandVagaId = vid;
   renderP();
 }
+
 function mCandList(vid) {
   const v = vagas.find(v => v.id === vid);
   if (!v) return '';
   let candsVaga = cands.filter(c => c.vid === vid);
+
+  modalTempFeList = [...modalFeList];
 
   // Ordenação por ID
   candsVaga.sort((a, b) => {
@@ -1507,6 +1524,7 @@ function mCandList(vid) {
     const numB = parseInt(b.id.replace('C','')) || 0;
     return candSortOrder === 'desc' ? numB - numA : numA - numB;
   });
+
   return `<div class="modal-bg" onclick="if(event.target.classList.contains('modal-bg'))fecharListaCand()">
   <div class="modal modal-scroll" style="max-width:1300px">
     <div class="modal-hdr"><h3>Candidatos da vaga: ${ec(v.cargo)} (${v.id})</h3><button class="ibtn" onclick="fecharListaCand()"><i class="ti ti-x"></i></button></div>
@@ -1543,23 +1561,27 @@ function mCandList(vid) {
         <table id="tabela-candidatos-vaga">
       <th style="width:100px">ID</th><th style="width:280px">Candidato</th><th>Telefone</th><th>Email</th><th>Etapa</th><th>Ações</th>
     </tr></thead><tbody>
-    ${candsVaga.length === 0 ? `<tr><td colspan="7"><div class="empty">Nenhum candidato nesta vaga</div></td></tr>` :
-    candsVaga.map(c => `<tr data-nome="${c.nome.toLowerCase()}" data-id="${c.id.toLowerCase()}" data-etapa="${c.etapa.toLowerCase()}">
-      <td><span class="td-id" style="color:#a78bfa">${c.id}</span></td>
-      <td class="td-nome"><div style="display:flex;align-items:center;gap:7px"><div class="avatar" style="width:24px;height:24px;border-radius:6px;font-size:10px;background:${avbg(c.nome)};color:${avtx(c.nome)}">${initials(c.nome)}</div>${ec(c.nome)}</div></td>
-      <td>
-        <a href="${whatsappLink(c.tel)}" target="_blank" style="color: var(--tx); text-decoration: none; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-          <i class="ti ti-brand-whatsapp" style="color: #25D366; font-size: 16px;"></i>
-          ${formatTel(c.tel)}
-        </a>
-      </td><td style="font-size:11px;color:var(--tx2)">${ec(c.email)}</td>
-      <td><span class="pill ${eclsf(c.etapa)}">${c.etapa}</span></td>
-      <td><div class="act-row">
-        <button class="ibtn" title="Editar" onclick="editC('${c.id}')"><i class="ti ti-pencil"></i></button>
-        <button class="ibtn fwd" title="Avançar" onclick="avancar('${c.id}')"><i class="ti ti-arrow-right"></i></button>
-        <button class="ibtn danger" title="Remover" onclick="delC('${c.id}')"><i class="ti ti-trash"></i></button>
-      </div></td>
-    </tr>`).join('')}
+    ${candsVaga.length === 0 ? `<tr><td colspan="6"><div class="empty">Nenhum candidato nesta vaga</div></td></tr>` :
+    candsVaga.map(c => {
+      const ocultar = modalFeList.length > 0 && !modalFeList.includes(c.etapa);
+      return `<tr data-nome="${c.nome.toLowerCase()}" data-id="${c.id.toLowerCase()}" data-etapa="${c.etapa.toLowerCase()}" ${ocultar ? 'style="display:none"' : ''}>
+        <td><span class="td-id" style="color:#a78bfa">${c.id}</span></td>
+        <td class="td-nome"><div style="display:flex;align-items:center;gap:7px"><div class="avatar" style="width:24px;height:24px;border-radius:6px;font-size:10px;background:${avbg(c.nome)};color:${avtx(c.nome)}">${initials(c.nome)}</div>${ec(c.nome)}</div></td>
+        <td style="white-space: nowrap;">
+          <span style="user-select: text; cursor: text;">${formatTel(c.tel)}</span>
+          <a href="${whatsappLink(c.tel)}" target="_blank" style="color: #25D366; text-decoration: none; margin-left: 6px; vertical-align: middle;" title="Abrir WhatsApp">
+            <i class="ti ti-brand-whatsapp" style="font-size: 16px;"></i>
+          </a>
+        </td>
+        <td style="font-size:11px;color:var(--tx2)">${ec(c.email)}</td>
+        <td><span class="pill ${eclsf(c.etapa)}">${c.etapa}</span></td>
+        <td><div class="act-row">
+          <button class="ibtn" title="Editar" onclick="editC('${c.id}')"><i class="ti ti-pencil"></i></button>
+          <button class="ibtn fwd" title="Avançar" onclick="avancar('${c.id}')"><i class="ti ti-arrow-right"></i></button>
+          <button class="ibtn danger" title="Remover" onclick="delC('${c.id}')"><i class="ti ti-trash"></i></button>
+        </div></td>
+      </tr>`;
+    }).join('')}
     </tbody></table></div>
     </div>
   </div></div>`;
@@ -1629,7 +1651,16 @@ function rconsol() {
   ${totalPaginas > 1 ? `<div class="pagination">${botoesPagina}</div>` : ''}
 </div>
 <div class="card"><div class="card-title">Candidatos contratados</div><div class="tbl-wrap" style="margin-top:.75rem"><table><thead><tr><th>ID</th><th>Candidato</th><th>Vaga</th><th>Telefone</th><th>Email</th><th>Obs</th></tr></thead><tbody>
-  ${candsVisiveis.filter(c=>c.etapa==='Contratado').length===0?`<tr><td colspan="6"><div class="empty">Nenhum</div></td></tr>`:candsVisiveis.filter(c=>c.etapa==='Contratado').map(c=>{const v=vagasVisiveis.find(vv=>vv.id===c.vid);return`<tr><td>${ec(c.id)}</td><td><div style="display:flex;align-items:center;gap:7px"><div class="avatar" style="width:24px;height:24px;border-radius:6px;font-size:10px;background:${avbg(c.nome)};color:${avtx(c.nome)}">${initials(c.nome)}</div>${ec(c.nome)}</div></td><td>${ec(c.vid)}${v?` – ${ec(v.cargo)}`:''}</td><td>${formatTel(c.tel)}</td><td>${ec(c.email)}</td><td>${ec(c.obs)}</td></tr>`;}).join('')}
+      ${candsVisiveis.filter(c=>c.etapa==='Contratado').length===0?`<tr><td colspan="6"><div class="empty">Nenhum</div></td></tr>`:candsVisiveis.filter(c=>c.etapa==='Contratado').map(c=>{const v=vagasVisiveis.find(vv=>vv.id===c.vid);return`<tr><td>${ec(c.id)}</td>
+        <td><div style="display:flex;align-items:center;gap:7px"><div class="avatar" style="width:24px;height:24px;border-radius:6px;font-size:10px;background:${avbg(c.nome)};color:${avtx(c.nome)}">${initials(c.nome)}</div>${ec(c.nome)}</div></td><td>${ec(c.vid)}${v?` – ${ec(v.cargo)}`:''}</td><td style="white-space: nowrap;">
+        <span style="user-select: text; cursor: text;">${formatTel(c.tel)}</span>
+        <a href="${whatsappLink(c.tel)}" target="_blank" style="color: #25D366; text-decoration: none; margin-left: 6px; vertical-align: middle;" title="Abrir WhatsApp">
+        <i class="ti ti-brand-whatsapp" style="font-size: 16px;"></i>
+      </a>
+    </td>
+    <td>${ec(c.email)}</td>
+    <td>${ec(c.obs)}</td>
+  </tr>`;}).join('')}
 </tbody></table></div></div>`;
 }
 
@@ -1770,6 +1801,14 @@ function verDetalhesSolicitacao(id) {
               return ec(user ? user.name : (sol.solicitante?.split('@')[0] || '-'));
             })()}</div>
             <div><strong>Data:</strong> ${new Date(sol.data).toLocaleDateString('pt-BR')}</div>
+            <div><strong>Descritivo da posição:</strong> ${ec(sol.descritivo || '-')}</div>
+            <div><strong>Curso de formação:</strong> ${ec(sol.curso || '-')}</div>
+            ${sol.requisitos && sol.requisitos.length > 0 ? `
+            <div><strong>Requisitos:</strong>
+              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
+                ${sol.requisitos.map(r => `<span class="pill" style="background:#E6F1FB;color:#0C447C;">${ec(r)}</span>`).join('')}
+              </div>
+            </div>` : ''}
             <div><strong>Observações:</strong> ${ec(sol.obs || '-')}</div>
             ${sol.criterios && sol.criterios.length > 0 ? `
             <div><strong>Critérios:</strong>
@@ -1812,15 +1851,22 @@ async function criarVagaDeSolicitacao(solId) {
     data: new Date().toISOString().slice(0, 10),
     pri: sol.pri,
     obs: `Solicitação de ${(() => {
-      const user = USERS.find(u => u.email === sol.solicitante);
-      return user ? user.name : (sol.solicitante?.split('@')[0] || 'Gestor');
-    })()}. ${sol.obs || ''}${sol.perguntas?.length ? '\n\nPerguntas adicionais:\n' + sol.perguntas.map(p => '• ' + p).join('\n') : ''}`,
+    const user = USERS.find(u => u.email === sol.solicitante);
+    return user ? user.name : (sol.solicitante?.split('@')[0] || 'Gestor');
+  })()}. ${sol.obs || ''}${sol.descritivo ? '\n\nDescritivo da posição:\n' + sol.descritivo : ''}${sol.curso ? '\n\nCurso de formação: ' + sol.curso : ''}${sol.requisitos?.length ? '\n\nRequisitos: ' + sol.requisitos.join(', ') : ''}${sol.perguntas?.length ? '\n\nPerguntas adicionais:\n' + sol.perguntas.map(p => '• ' + p).join('\n') : ''}`,
     criterios: [],
     posicoes,
     qtd: posicoes.length,
     status: 'Aberta',
     solicitanteEmail: sol.solicitante
   };
+
+  // Gera o link de inscrição (substitua pela URL real da sua página de inscrição)
+  const baseUrl = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/inscricao.html');
+  const linkInscricao = `${baseUrl}?vaga=${novoId}`;
+
+  // Adiciona o link à vaga
+  novaVaga.linkInscricao = linkInscricao;
 
   await saveVagaToFirestore(novaVaga);
   await deleteSolicitacaoFromFirestore(solId);
@@ -1830,6 +1876,30 @@ async function criarVagaDeSolicitacao(solId) {
 
   showToast(`Vaga ${novoId} criada com sucesso!`);
   renderP();
+
+    // Exibe o link para o RH copiar
+  showToast(`Vaga ${novoId} criada! Link de inscrição: ${linkInscricao}`);
+  // Ou, melhor: exibir em um modal para facilitar a cópia
+  mostrarLinkCopiar(linkInscricao);
+  
+}
+
+function mostrarLinkCopiar(link) {
+  const gmodal = document.getElementById('gmodal');
+  gmodal.style.display = 'flex';
+  gmodal.innerHTML = `
+    <div class="modal-bg">
+      <div class="alert-modal" style="text-align:left;">
+        <h3>Vaga criada com sucesso!</h3>
+        <p style="margin:12px 0; word-break:break-all;">Link de inscrição:<br><strong>${link}</strong></p>
+        <div class="modal-actions">
+          <button class="btn-sec" onclick="navigator.clipboard.writeText('${link}'); showToast('Link copiado!')">
+            <i class="ti ti-copy"></i> Copiar link
+          </button>
+          <button class="btn-add" onclick="document.getElementById('gmodal').style.display='none'">OK</button>
+        </div>
+      </div>
+    </div>`;
 }
 
 function recalcStatusVaga(vaga) {
@@ -1945,6 +2015,16 @@ function mVaga() {
     <div class="fg"><label>Qtd de vagas</label><input type="number" id="fi-qt" min="1" value="${v.posicoes ? v.posicoes.length : 1}" ${disabledAttr}></div>
     <div class="fg"><label>Prioridade</label><select id="fi-pr"${disabledAttr}>${PRIS.map(p=>`<option ${v.pri===p?'selected':''}>${p}</option>`).join('')}</select></div>
     <div class="fg full"><label>Observações</label><textarea id="fi-ob" ${disabledAttr}>${ec(v.obs||'')}</textarea></div>
+    ${v.linkInscricao ? `
+  <div class="fg full">
+    <label>Link de Inscrição</label>
+    <div style="display:flex; gap:6px;">
+      <input value="${ec(v.linkInscricao)}" readonly style="flex:1;">
+      <button class="btn-sec" onclick="navigator.clipboard.writeText('${ec(v.linkInscricao)}'); showToast('Link copiado!')">
+        <i class="ti ti-copy"></i>
+      </button>
+    </div>
+  </div>` : ''}
     ${v.solicitanteEmail ? `
     <div class="fg full">
       <label>Solicitante</label>
@@ -2269,6 +2349,7 @@ async function avancar(id) {
     renderP();
   }
 }
+
 async function svV(ie) {
   const id = document.getElementById('fi-id').value.trim();
   const novaQtd = parseInt(document.getElementById('fi-qt').value) || 1;
@@ -2290,8 +2371,7 @@ async function svV(ie) {
     for (let i = 1; i <= novaQtd; i++) posicoes.push({ num: i, status: 'Aberta' });
   }
 
-  // --- Cálculo do status baseado nos candidatos reais ---
-  // Atualiza as posições conforme os contratados atuais (somente para edição)
+  // Cálculo do status baseado nos candidatos reais (apenas para edição)
   if (ie) {
     const contratadosAtuais = cands.filter(c => c.vid === id && (c.etapa === 'Contratado')).length;
     let preenchidas = 0;
@@ -2305,7 +2385,6 @@ async function svV(ie) {
     }
   }
 
-  // Determina o status com base nos candidatos vinculados à vaga
   const totalCandsDaVaga = cands.filter(c => c.vid === id).length;
   const contratadosDaVaga = cands.filter(c => c.vid === id && (c.etapa === 'Contratado')).length;
   const totalPosicoes = posicoes.length;
@@ -2319,15 +2398,20 @@ async function svV(ie) {
     statusCalculado = 'Aberta';
   }
 
-  // Respeita escolha manual de "Congelada", exceto se houver contratados
   let statusGeral = document.getElementById('fi-st')?.value;
   if (statusGeral !== 'Congelada' || contratadosDaVaga > 0) {
     statusGeral = statusCalculado;
   }
-  // --- Fim do novo cálculo ---
 
   const criteriosHidden = document.getElementById('fi-criterios');
   const criterios = criteriosHidden ? (criteriosHidden.value ? criteriosHidden.value.split('||') : []) : [];
+
+  // Link de inscrição: gerar apenas se for nova vaga ou se não existir um link ainda
+  let linkInscricao = vagaAtual?.linkInscricao;
+  if (!linkInscricao) {
+    const baseUrl = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/inscricao.html');
+    linkInscricao = `${baseUrl}?vaga=${id}`;
+  }
 
   const o = {
     id,
@@ -2341,8 +2425,10 @@ async function svV(ie) {
     posicoes,
     qtd: posicoes.length,
     status: statusGeral,
-    solicitanteEmail: vagaAtual?.solicitanteEmail || null
+    solicitanteEmail: vagaAtual?.solicitanteEmail || null,
+    linkInscricao: linkInscricao
   };
+
   if (!o.cargo || !o.empresa) { showAlert('Preencha cargo e empresa.'); return; }
   if (ie) vagas = vagas.map(v => v.id === id ? o : v);
   else {
@@ -2350,6 +2436,12 @@ async function svV(ie) {
     vagas.push(o);
   }
   await saveVagaToFirestore(o);
+  
+  // Se for uma vaga nova, exibe o modal com o link para cópia
+  if (!ie) {
+    mostrarLinkCopiar(linkInscricao);
+  }
+  
   closeM();
 }
 
@@ -2484,7 +2576,32 @@ function formatTel(num) {
   return `(${ddd}) ${parte1}-${parte2}`;
 }
 
-function renderP() { render(); }
+function renderP() {
+  render();
+  if (modalCandVagaId) {
+    setTimeout(() => filtrarCandidatosNaVaga(), 50);
+  }
+}
+
+//============================================
+function mostrarLinkCopiar(link) {
+  const gmodal = document.getElementById('gmodal');
+  gmodal.style.display = 'flex';
+  gmodal.innerHTML = `
+    <div class="modal-bg">
+      <div class="alert-modal" style="text-align:left; max-width:500px;">
+        <h3>Vaga criada com sucesso!</h3>
+        <p style="margin:12px 0; word-break:break-all; font-size:14px;">Link de inscrição:<br><strong>${link}</strong></p>
+        <div class="modal-actions">
+          <button class="btn-sec" onclick="navigator.clipboard.writeText('${link}'); showToast('Link copiado!')">
+            <i class="ti ti-copy"></i> Copiar link
+          </button>
+          <button class="btn-add" onclick="document.getElementById('gmodal').style.display='none'">OK</button>
+        </div>
+      </div>
+    </div>`;
+}
+
 
 // ========== LOGIN (Firebase Auth) ==========
 function showLogin() {
@@ -2494,13 +2611,12 @@ function showLogin() {
       <div class="login-box">
         <h2>Seja bem-vindo(a)!</h2>
         <select id="loginProfile" onchange="atualizarUsuarios()">
+          <option value="">Selecione o perfil</option>
           <option value="RH">RH</option>
           <option value="Gestor">Gestor</option>
         </select>
-        <select id="loginUser">
-          ${USERS.filter(u => u.role === 'RH').map(u => `<option value="${u.email}">${u.name}</option>`).join('')}
-        </select>
-        <div class="password-wrapper">
+        <select id="loginUser" style="display:none;"></select>
+        <div class="password-wrapper" style="display:none;" id="pwdWrapper">
           <input type="password" id="loginPassword" placeholder="Senha">
           <button type="button" class="toggle-password" onclick="togglePasswordVisibility()">
             <i class="ti ti-eye" id="toggle-icon"></i>
@@ -2512,38 +2628,56 @@ function showLogin() {
     </div>
   `;
 }
+
 function atualizarUsuarios() {
   const perfil = document.getElementById('loginProfile').value;
   const select = document.getElementById('loginUser');
+  const pwdWrapper = document.getElementById('pwdWrapper');
+  if (!perfil) {
+    select.style.display = 'none';
+    if (pwdWrapper) pwdWrapper.style.display = 'none';
+    return;
+  }
   select.innerHTML = USERS
     .filter(u => u.role === perfil)
     .map(u => `<option value="${u.email}">${u.name}</option>`)
     .join('');
+  select.style.display = 'block';
+  if (pwdWrapper) pwdWrapper.style.display = 'block';
 }
 
-
 function login() {
+  const perfilSelecionado = document.getElementById('loginProfile').value;
   const email = document.getElementById('loginUser').value;
   const password = document.getElementById('loginPassword').value;
-  const perfilSelecionado = document.getElementById('loginProfile').value;
+
+  if (!perfilSelecionado) {
+    showToast('Selecione o perfil (RH ou Gestor).');
+    return;
+  }
+  if (!password.trim()) {
+    showToast('Digite a senha.');
+    return;
+  }
+
   auth.signInWithEmailAndPassword(email, password)
     .then((userCredential) => {
       currentUser = userCredential.user;
       const userInfo = USERS.find(u => u.email === currentUser.email);
       if (!userInfo || userInfo.role !== perfilSelecionado) {
         auth.signOut();
-        showAlert('Usuário não autorizado para este perfil.');
+        showToast('Usuário não autorizado para este perfil.');
         return;
       }
-      userProfile = perfilSelecionado;  // 👈 guarda o perfil
+      userProfile = perfilSelecionado;
       document.getElementById('gmodal').style.display = 'none';
       initApp();
     })
     .catch((error) => {
       if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
-        showAlert('Senha incorreta. Tente novamente.');
+        showToast('Senha incorreta. Tente novamente.');
       } else {
-        showAlert('Erro ao autenticar: ' + error.message);
+        showToast('Senha incorreta. Tente novamente.');
       }
     });
 }
@@ -2597,51 +2731,86 @@ function togglePasswordVisibility() {
 
 // ===== MODAL DE SOLICITAÇÃO DE VAGA (GESTOR) =====
 function showSolicitarVagaModal() {
+  // ===== PERMISSÕES POR GESTOR =====
+  const TODAS_LOCALIDADES = LOCAIS.filter(l => l !== 'Selecione'); // todas menos "Selecione"
+
+  const GESTOR_PERMISSOES = {
+    'cesar@santorini.com':   { empresas: ['Netz'],               locais: TODAS_LOCALIDADES },
+    'nayara@santorini.com':  { empresas: ['Netz'],               locais: TODAS_LOCALIDADES },
+    'daniela@santorini.com': { empresas: ['GD'],                 locais: TODAS_LOCALIDADES },
+    'fabio@santorini.com':   { empresas: EMPRESAS.filter(e => e !== 'Selecione'), locais: TODAS_LOCALIDADES },
+    'marcelo@santorini.com': { empresas: ['Energia'],            locais: ['POA'] }
+  };
+  const userEmail = currentUser?.email;
+  const perm = GESTOR_PERMISSOES[userEmail] || {};
+  const empresasOk = perm.empresas || EMPRESAS;
+  const locaisOk   = perm.locais   || LOCAIS;
+
   const gmodal = document.getElementById('gmodal');
   gmodal.style.display = 'flex';
   gmodal.innerHTML = `
     <div class="modal-bg" onclick="if(event.target.classList.contains('modal-bg'))document.getElementById('gmodal').style.display='none'">
-      <div class="modal" style="max-width:500px; display:flex; flex-direction:column; max-height:90vh;">
+      <div class="modal" style="max-width:650px; display:flex; flex-direction:column; max-height:90vh;">
         <div class="modal-hdr" style="flex-shrink:0;">
           <h3>Solicitar Abertura de Vaga</h3>
           <button class="ibtn" onclick="document.getElementById('gmodal').style.display='none'"><i class="ti ti-x"></i></button>
         </div>
-
-        <!-- Área com scroll -->
         <div style="flex:1; overflow-y:auto; padding-right:4px;" class="modal-body-scroll">
           <div class="fgrid">
-            <div class="fg"><label>Empresa</label><select id="sol-empresa">${EMPRESAS.map(e => `<option>${e}</option>`).join('')}</select></div>
-            <div class="fg"><label>Localização</label><select id="sol-local">${LOCAIS.map(l => `<option>${l}</option>`).join('')}</select></div>
-            <div class="fg"><label>Cargo</label><input id="sol-cargo" placeholder="Ex: Analista de TI"></div>
+            <div class="fg"><label>Empresa</label><select id="sol-empresa">${empresasOk.map(e => `<option>${e}</option>`).join('')}</select></div>
+            <div class="fg"><label>Localização</label><select id="sol-local">${locaisOk.map(l => `<option>${l}</option>`).join('')}</select></div>
+            <div class="fg full"><label>Cargo</label><input id="sol-cargo" placeholder="Ex: Analista de TI"></div>
             <div class="fg"><label>Quantidade</label><input type="number" id="sol-qtd" min="1" value="1"></div>
             <div class="fg"><label>Prioridade</label><select id="sol-pri">${PRIS.map(p => `<option>${p}</option>`).join('')}</select></div>
-            <div class="fg full"><label>Observações</label><textarea id="sol-obs" placeholder="Descreva o motivo da solicitação..."></textarea></div>
 
-            <!-- Perguntas adicionais -->
+            <div class="fg full" style="margin-top:8px;">
+              <label>Descritivo da posição</label>
+              <textarea id="sol-descritivo" placeholder="Descrever ao menos 3 atividades que a vaga desempenha, com detalhes."></textarea>
+            </div>
+
+            <div class="fg full" style="margin-top:8px;">
+              <label>Critérios</label>
+              <div style="display:flex;gap:8px;">
+                <input type="text" id="sol-criterio-txt" placeholder="Digite um critério..." onkeydown="if(event.key==='Enter'){event.preventDefault(); adicionarCriterioSol();}">
+                <button type="button" class="btn-sec" onclick="adicionarCriterioSol()" style="white-space:nowrap;"><i class="ti ti-plus"></i> Adicionar</button>
+              </div>
+              <ul id="sol-criterios-lista" style="list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></ul>
+              <input type="hidden" id="sol-criterios-hidden" value="">
+            </div>
+
+            <div class="fg full" style="margin-top:8px;">
+              <label>Curso de formação</label>
+              <input type="text" id="sol-curso" placeholder="Ex: Engenharia Elétrica, Administração...">
+            </div>
+
+            <div class="fg full" style="margin-top:8px;">
+              <label>Requisitos</label>
+              <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px;">
+                ${REQUISITOS_SOL.map(r => `
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:400;">
+                    <input type="checkbox" value="${r}" class="sol-requisito-check" style="width:auto;">
+                    ${r}
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+
             <div class="fg full" style="margin-top:8px;">
               <label>Perguntas adicionais</label>
               <div style="display:flex;gap:8px;">
-                <input type="text" id="sol-pergunta-txt" placeholder="Digite uma pergunta para a entrevista...">
+                <input type="text" id="sol-pergunta-txt" placeholder="Digite uma pergunta para a entrevista..." onkeydown="if(event.key==='Enter'){event.preventDefault(); adicionarPerguntaSol();}">
                 <button type="button" class="btn-sec" onclick="adicionarPerguntaSol()" style="white-space:nowrap;"><i class="ti ti-plus"></i> Adicionar</button>
               </div>
               <ul id="sol-perguntas-lista" style="list-style:none;display:flex;flex-direction:column;gap:6px;margin-top:8px;"></ul>
               <input type="hidden" id="sol-perguntas-hidden" value="">
             </div>
 
-            <!-- Critérios -->
             <div class="fg full" style="margin-top:8px;">
-              <label>Critérios</label>
-              <div style="display:flex;gap:8px;">
-                <input type="text" id="sol-criterio-txt" placeholder="Digite um critério...">
-                <button type="button" class="btn-sec" onclick="adicionarCriterioSol()" style="white-space:nowrap;"><i class="ti ti-plus"></i> Adicionar</button>
-              </div>
-              <ul id="sol-criterios-lista" style="list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></ul>
-              <input type="hidden" id="sol-criterios-hidden" value="">
+              <label>Observações</label>
+              <textarea id="sol-obs" placeholder="Descreva o motivo da solicitação..."></textarea>
             </div>
           </div>
         </div>
-
-        <!-- Botões fixos no rodapé -->
         <div class="modal-acts" style="flex-shrink:0;">
           <button class="btn-sec" onclick="document.getElementById('gmodal').style.display='none'">Cancelar</button>
           <button class="btn-add" onclick="solicitarVaga()"><i class="ti ti-send"></i> Solicitar</button>
@@ -2683,7 +2852,13 @@ function adicionarPerguntaSol() {
   const perguntas = hidden.value ? hidden.value.split('||') : [];
   perguntas.push(valor);
   hidden.value = perguntas.join('||');
-  lista.innerHTML = perguntas.map((p, i) => `<li class="pill" style="background:#FFF3E0;color:#E65100;display:flex;align-items:center;gap:6px;">${ec(p)} <button type="button" class="ibtn" style="font-size:12px;padding:0;color:#E65100;" onclick="removerPerguntaSol(${i})"><i class="ti ti-x"></i></button></li>`).join('');
+  lista.innerHTML = perguntas.map((p, i) => `
+    <li class="pill" style="background:#FFF3E0;color:#E65100;display:flex;align-items:center;justify-content:space-between;gap:6px;">
+      <span>${ec(p)}</span>
+      <button type="button" class="ibtn" style="font-size:12px;padding:0;color:#E65100;margin-left:auto;" onclick="removerPerguntaSol(${i})">
+        <i class="ti ti-x"></i>
+      </button>
+    </li>`).join('');
   input.value = '';
 }
 
@@ -2693,12 +2868,25 @@ function removerPerguntaSol(index) {
   perguntas.splice(index, 1);
   hidden.value = perguntas.join('||');
   const lista = document.getElementById('sol-perguntas-lista');
-  lista.innerHTML = perguntas.map((p, i) => `<li class="pill" style="background:#FFF3E0;color:#E65100;display:flex;align-items:center;gap:6px;">${ec(p)} <button type="button" class="ibtn" style="font-size:12px;padding:0;color:#E65100;" onclick="removerPerguntaSol(${i})"><i class="ti ti-x"></i></button></li>`).join('');
+  lista.innerHTML = perguntas.map((p, i) => `
+    <li class="pill" style="background:#FFF3E0;color:#E65100;display:flex;align-items:center;justify-content:space-between;gap:6px;">
+      <span>${ec(p)}</span>
+      <button type="button" class="ibtn" style="font-size:12px;padding:0;color:#E65100;margin-left:auto;" onclick="removerPerguntaSol(${i})">
+        <i class="ti ti-x"></i>
+      </button>
+    </li>`).join('');
 }
 
 async function solicitarVaga() {
   const cargo = document.getElementById('sol-cargo').value.trim();
   if (!cargo) { showAlert('Preencha o cargo.'); return; }
+
+  const descritivo = document.getElementById('sol-descritivo')?.value.trim() || '';
+  const curso = document.getElementById('sol-curso')?.value.trim() || '';
+
+  // Captura requisitos selecionados
+  const requisitosChecks = document.querySelectorAll('.sol-requisito-check:checked');
+  const requisitos = Array.from(requisitosChecks).map(cb => cb.value);
 
   const perguntasHidden = document.getElementById('sol-perguntas-hidden');
   const perguntas = perguntasHidden ? (perguntasHidden.value ? perguntasHidden.value.split('||') : []) : [];
@@ -2712,9 +2900,12 @@ async function solicitarVaga() {
     cargo: cargo,
     qtd: parseInt(document.getElementById('sol-qtd').value) || 1,
     pri: document.getElementById('sol-pri').value,
-    obs: document.getElementById('sol-obs').value,
+    descritivo: descritivo,
+    curso: curso,
+    requisitos: requisitos,
     criterios: criterios,
     perguntas: perguntas,
+    obs: document.getElementById('sol-obs').value,
     solicitante: currentUser?.email || 'Desconhecido',
     data: new Date().toISOString(),
     status: 'Pendente',
