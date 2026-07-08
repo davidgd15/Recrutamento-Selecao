@@ -2081,22 +2081,68 @@ function removerCriterio(index) {
 }
 
 // ========== COMPONENTE DE BUSCA DE VAGA ==========
-function renderVagaSearch(selectedVid = null, preSelectedVid = null) {
-  const vagasOptions = vagas.map(v => ({ id: v.id, cargo: v.cargo }));
-  const selected = selectedVid || preSelectedVid || '';
-  const selectedVaga = vagas.find(v => v.id === selected);
+function renderVagaSearch(selectedVid = null, preSelectedVid = null, showEditButton = false, disabled = false) {
+  const selected = (selectedVid || preSelectedVid || '').trim();
+  const selectedVaga = selected ? vagas.find(v => v.id === selected) : null;
+  const displayValue = selected
+    ? (selectedVaga ? `${selected} – ${selectedVaga.cargo}` : `${selected} – (vaga não encontrada)`)
+    : '';
 
   return `
-    <div class="search-select" id="vaga-search">
-      <input type="text" id="vaga-search-input" placeholder="Digite ID ou cargo..." value="${selected ? selected + ' - ' + (selectedVaga?.cargo || '') : ''}" autocomplete="off" onchange="filtrarVagas()" onfocus="filtrarVagas()">
-      <span class="dropdown-icon"><i class="ti ti-chevron-down"></i></span>
-      <div class="options-list" id="vaga-options"></div>
+    <div class="search-select" id="vaga-search" style="display:flex; gap:6px; align-items:center;">
+      <div style="position:relative; flex:1;">
+        <input type="text" id="vaga-search-input" 
+          placeholder="Digite ID ou cargo..." 
+          value="${displayValue.replace(/"/g, '&quot;')}" 
+          autocomplete="off" 
+          onchange="filtrarVagas()" 
+          onfocus="if(!this.disabled){filtrarVagas();}" 
+          oninput="limparErroVaga()"
+          ${disabled ? 'disabled' : ''}>
+        <span class="dropdown-icon" id="vaga-dropdown-icon" style="${disabled ? 'display:none;' : ''}"><i class="ti ti-chevron-down"></i></span>
+        <div class="options-list" id="vaga-options"></div>
+      </div>
+      ${showEditButton ? `
+      <button type="button" id="btn-reset-vaga" class="ibtn" title="Alterar vaga" onclick="resetVagaSearch()" ${userProfile === 'Gestor' ? 'disabled' : ''}>
+        <i class="ti ti-pencil" style="font-size: 16px;"></i>
+      </button>` : ''}
       <input type="hidden" id="ci-vg" value="${selected}">
     </div>
   `;
 }
+
+//=========================
+function resetVagaSearch() {
+  const input = document.getElementById('vaga-search-input');
+  const hidden = document.getElementById('ci-vg');
+  const icon = document.getElementById('vaga-dropdown-icon');
+  
+  if (input) {
+    input.disabled = false;
+    input.value = '';
+    input.focus();
+  }
+  if (hidden) hidden.value = '';
+  if (icon) icon.style.display = ''; // mostra o ícone da setinha
+  
+  // Fecha o dropdown se estiver aberto
+  const options = document.getElementById('vaga-options');
+  if (options) options.classList.remove('open');
+  
+  // Aciona a busca para mostrar todas as vagas disponíveis
+  setTimeout(() => filtrarVagas(), 100);
+}
+
+//=========================
+function limparErroVaga() {
+  const input = document.getElementById('vaga-search-input');
+  if (input) input.style.border = '';
+}
+//=========================
 function filtrarVagas() {
   const input = document.getElementById('vaga-search-input');
+  if (!input || input.disabled) return; // não faz nada se estiver desabilitado
+  
   const filter = input.value.toLowerCase();
   const optionsDiv = document.getElementById('vaga-options');
   const hiddenInput = document.getElementById('ci-vg');
@@ -2121,6 +2167,7 @@ function filtrarVagas() {
   }
   optionsDiv.classList.add('open');
 }
+
 function selecionarVaga(vid, cargo) {
   document.getElementById('vaga-search-input').value = vid + ' - ' + cargo;
   document.getElementById('ci-vg').value = vid;
@@ -2134,13 +2181,30 @@ document.addEventListener('click', function(e) {
   }
 });
 
+//==========================
+function limparErroContato() {
+  const tel = document.getElementById('ci-tl');
+  const email = document.getElementById('ci-em');
+  const linkedin = document.getElementById('ci-linkedin');
+  if (tel) tel.style.border = '';
+  if (email) email.style.border = '';
+  if (linkedin) linkedin.style.border = '';
+}
+
+function limparErroNome() {
+  const input = document.getElementById('ci-nm');
+  if (input) input.style.border = '';
+}
+
 // ========== MODAL DE CANDIDATO (ATUALIZADO COM JUSTIFICATIVA) ==========
 function mCand() {
   const c = eid ? cands.find(cc => cc.id === eid) : {};
   const ie = !!eid;
   const disabledAttr = userProfile === 'Gestor' ? 'disabled' : '';
-  const vagaSearchHTML = renderVagaSearch(c.vid, _preSelectedVid);
+  const vagaSearchHTML = renderVagaSearch(c.vid, _preSelectedVid, ie, ie);
   if (!ie && _preSelectedVid) _preSelectedVid = null;
+  const vagaAtualCand = ie && c.vid ? vagas.find(v => v.id === c.vid) : null;
+  const tituloVaga = vagaAtualCand ? ` (${c.vid} – ${vagaAtualCand.cargo})` : '';
   
   // Justificativa só aparece se está editando e o candidato está reprovado (ou se novo, nunca aparece)
   const showJustificativa = ie && (c.etapa === 'Reprovado');
@@ -2148,7 +2212,7 @@ function mCand() {
   return `<div class="modal-bg" onclick="if(event.target.classList.contains('modal-bg'))closeM()">
     <div class="modal" style="display:flex; flex-direction:column; max-height:90vh; max-width:650px;">
       <div class="modal-hdr" style="flex-shrink:0;">
-        <h3>${ie ? 'Editar candidato' : 'Novo candidato'}</h3>
+        <h3>${ie ? 'Editar candidato' + tituloVaga : 'Novo candidato'}</h3>
         <button class="ibtn" onclick="closeM()"><i class="ti ti-x"></i></button>
       </div>
       <div style="flex:1; overflow-y:auto; padding-right:4px;" class="modal-body-scroll">
@@ -2158,9 +2222,10 @@ function mCand() {
         <div class="fg"><label>Origem</label><select id="ci-origem" onchange="toggleOutroOrigem()" ${disabledAttr}>${ORIGENS.map(o=>`<option ${c.origem===o?'selected':''}>${o}</option>`).join('')}</select></div>
         <div class="fg" id="fg-outro" style="display:${c.origem==='Outro'?'flex':'none'}"><label>Especifique</label><input id="ci-outro-txt" value="${ec(c.origem==='Outro'?c.origem_txt||'':'')}" ${disabledAttr}></div>
         <div class="fg"><label>Data da candidatura</label><input type="date" id="ci-dt" value="${c.data_cand||new Date().toISOString().slice(0,10)}" ${disabledAttr}></div>
-        <div class="fg full"><label>Nome completo</label><input id="ci-nm" value="${ec(c.nome||'')}" ${disabledAttr}></div>
-        <div class="fg"><label>Celular</label><input id="ci-tl" placeholder="(11) 99999-9999" value="${ec(c.tel||'')}" ${disabledAttr}></div>
-        <div class="fg"><label>Email</label><input id="ci-em" value="${ec(c.email||'')}" ${disabledAttr}></div>
+        <div class="fg full"><label>Nome completo</label><input id="ci-nm" value="${ec(c.nome||'')}" oninput="limparErroNome()" ${disabledAttr}></div>
+        <div class="fg"><label>Celular</label><input id="ci-tl" placeholder="(11) 99999-9999" value="${ec(c.tel||'')}" oninput="limparErroContato()" ${disabledAttr}></div>
+        <div class="fg"><label>Email</label><input id="ci-em" value="${ec(c.email||'')}" oninput="limparErroContato()" ${disabledAttr}></div>
+        <div class="fg"><label>LinkedIn</label><input id="ci-linkedin" placeholder="linkedin.com/in/seu-perfil" value="${ec(c.linkedin||'')}" oninput="limparErroContato()" ${disabledAttr}></div>
         <div class="fg full"><label>Observações</label><textarea id="ci-ob" ${disabledAttr}>${ec(c.obs||'')}</textarea></div>
         <div class="fg full"><label>Etapa</label><select id="ci-et" onchange="toggleJustificativa()" ${disabledAttr}>${ETAPAS.map(e=>`<option ${(c.etapa||'Triagem')===e?'selected':''}>${e}</option>`).join('')}</select></div>
        <div class="fg full" id="fg-justificativa" style="display:${showJustificativa ? 'flex' : 'none'}">
@@ -2458,6 +2523,20 @@ async function svC(ie) {
   const etapa = document.getElementById('ci-et').value;
   const oldC = ie ? cands.find(c => c.id === id) : null;
 
+  // Se for edição e o campo estiver vazio, mantém a vaga original
+  if (ie && !vid && oldC) {
+    vid = oldC.vid;
+    // Atualiza o campo hidden para evitar inconsistências
+    document.getElementById('ci-vg').value = vid;
+  }
+
+  // Se for novo e não tiver vaga selecionada, mostra erro
+  if (!vid) {
+    const vagaInput = document.getElementById('vaga-search-input');
+    if (vagaInput) vagaInput.style.border = '1px solid red';
+    return;
+  }
+
   // Justificativa
   const motivo1 = document.getElementById('ci-motivo1')?.value || '';
   const motivo2 = document.getElementById('ci-motivo2')?.value || '';
@@ -2492,6 +2571,15 @@ async function svC(ie) {
   const nome = document.getElementById('ci-nm').value.trim();
   const email = document.getElementById('ci-em').value;
   const obs = document.getElementById('ci-ob').value;
+  const linkedin = document.getElementById('ci-linkedin')?.value.trim() || '';
+
+  if (!telLimpo && !email.trim() && !linkedin) {
+    document.getElementById('ci-tl').style.border = '1px solid red';
+    document.getElementById('ci-em').style.border = '1px solid red';
+    const linkedinEl = document.getElementById('ci-linkedin');
+    if (linkedinEl) linkedinEl.style.border = '1px solid red';
+    return;
+  }
 
   // ========== VERIFICAÇÃO DE DUPLICIDADE (apenas para novos candidatos) ==========
   if (!ie) {
@@ -2522,6 +2610,7 @@ async function svC(ie) {
     nome,
     tel: telLimpo,
     email,
+    linkedin,
     obs,
     etapa,
     posicao: etapa === 'Contratado' ? posicao : null,
@@ -2529,7 +2618,11 @@ async function svC(ie) {
     justificativa_outro,
     envioReprovacao: document.getElementById('ci-envio-reprovacao')?.checked || false,
   };
-  if (!o.nome) { showAlert('Preencha o nome.'); return; }
+  if (!o.nome) {
+    const nomeInput = document.getElementById('ci-nm');
+    if (nomeInput) nomeInput.style.border = '1px solid red';
+    return;
+  }
   if (origem === 'Outro' && !origem_txt.trim()) { showAlert('Especifique a origem.'); return; }
   if (justificativaSel === 'Outros' && !justificativa_outro.trim()) { showAlert('Especifique a justificativa.'); return; }
 
