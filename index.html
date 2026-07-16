@@ -600,6 +600,8 @@ let solicitacoes = []; // armazena as solicitações dos gestores
 let modalFeList = [];
 let modalTempFeList = [];
 let candSortOrder = 'desc'; // 'asc' ou 'desc'
+let fsVagaList = [];        // lista de status selecionados para o filtro de vagas (Candidatos por Vaga)
+let tempFsVagaList = [];   // array temporário usado no dropdown
 
 //========== MOTIVOS ========
 const MOTIVOS_REPROVACAO = [
@@ -833,7 +835,7 @@ function parseCSVLine(line) {
 // ========== NAVEGAÇÃO ==========
 function nav(p) {
   page = p; eid = null; modal = null; modalCandVagaId = null; _preSelectedVid = null;
-  fv = ''; fs = ''; feList = []; fvc = '';
+  fv = ''; fs = ''; feList = []; fvc = ''; fsVagaList = [];;
   solicSubTab = 'criadas';
   vagaDash = '';
   document.querySelectorAll('.nav-btn').forEach((b, i) => b.classList.toggle('active', ['dashboard','vagas','candidatos','consolidado'][i] === p));
@@ -882,6 +884,48 @@ function gerarDonut(dados, cores, centroLabel) {
   }).join('');
   return `<div class="donut-wrap"><svg viewBox="0 0 100 100">${slices}</svg><div class="donut-center"><div class="donut-total">${total}</div><div class="donut-sub">${centroLabel}</div></div></div>`;
 }
+
+// ----------- dropdown vagas status ----------------
+function toggleDropdownVagaStatus() {
+  const dd = document.getElementById('dropdown-vaga-status');
+  if (!dd) return;
+  if (dd.style.display === 'block') {
+    dd.style.display = 'none';
+    tempFsVagaList = [...fsVagaList];
+    return;
+  }
+  tempFsVagaList = [...fsVagaList];
+  dd.style.display = 'block';
+  const handler = (e) => {
+    if (!dd.contains(e.target) && e.target.id !== 'btn-vaga-status') {
+      dd.style.display = 'none';
+      tempFsVagaList = [...fsVagaList];
+      document.removeEventListener('click', handler);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', handler), 10);
+}
+
+function onCheckVagaStatus(status) {
+  const idx = tempFsVagaList.indexOf(status);
+  if (idx > -1) tempFsVagaList.splice(idx, 1);
+  else tempFsVagaList.push(status);
+}
+
+function aplicarFiltroVagaStatus() {
+  fsVagaList = [...tempFsVagaList];
+  const dd = document.getElementById('dropdown-vaga-status');
+  if (dd) dd.style.display = 'none';
+  renderP();
+}
+
+function limparFiltroVagaStatus() {
+  fsVagaList = [];
+  tempFsVagaList = [];
+  renderP();
+}
+
+
 
 // ----- NOVAS FUNÇÕES PARA FILTRO DE MÚLTIPLAS ETAPAS -----
 let tempFeList = []; // array temporário usado no dropdown
@@ -1355,8 +1399,10 @@ function switchCandSubTab(sub) {
 // Cards de vagas com filtro de busca e status
 function rcandsPorVaga() {
   const busca = fv.toLowerCase();
-  const statusFiltro = fs;
   const vagasVisiveis = getVisibleVagas();
+
+  // Sincroniza a lista temporária com a lista real de status
+  tempFsVagaList = [...fsVagaList];
 
   let vagasFiltradas = vagasVisiveis;
   if (busca) {
@@ -1364,8 +1410,9 @@ function rcandsPorVaga() {
       v.cargo.toLowerCase().includes(busca) || v.id.toLowerCase().includes(busca)
     );
   }
-  if (statusFiltro) {
-    vagasFiltradas = vagasFiltradas.filter(v => v.status === statusFiltro);
+  // Novo filtro por status (múltiplos)
+  if (fsVagaList.length > 0) {
+    vagasFiltradas = vagasFiltradas.filter(v => fsVagaList.includes(v.status));
   }
 
   let cardsHtml = '';
@@ -1394,13 +1441,34 @@ function rcandsPorVaga() {
     }).join('');
   }
 
+  // Contagem de status para exibir no dropdown
+  const statusCounts = {};
+  STATS.forEach(s => statusCounts[s] = vagasVisiveis.filter(v => v.status === s).length);
+
   return `
 <div class="filters">
   <input class="fi" placeholder="Buscar por ID ou cargo da vaga..." value="${ec(fv)}" onchange="fv=this.value;renderP()" style="min-width:280px;">
-  <select class="fi" onchange="fs=this.value;renderP()">
-    <option value="">Todos os status</option>
-    ${STATS.map(s => `<option ${fs === s ? 'selected' : ''}>${s}</option>`).join('')}
-  </select>
+  
+  <!-- Dropdown de múltiplos status -->
+  <div style="position:relative;">
+    <button type="button" id="btn-vaga-status" class="btn-sec" onclick="toggleDropdownVagaStatus()">
+      <i class="ti ti-filter"></i> Status ${fsVagaList.length > 0 ? `(${fsVagaList.length})` : ''}
+    </button>
+    <div id="dropdown-vaga-status" style="position:absolute; top:100%; left:0; background:var(--surf); border:0.5px solid var(--border2); border-radius:var(--r); padding:8px; min-width:200px; z-index:100; display:none; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+      ${STATS.map(s => `
+        <label style="display:flex; align-items:center; gap:6px; padding:4px 0; cursor:pointer; font-size:13px;">
+          <input type="checkbox" ${tempFsVagaList.includes(s) ? 'checked' : ''} onchange="onCheckVagaStatus('${s}')" style="width:auto;">
+          <span class="pill ${scls(s)}">${s}</span>
+          <span style="margin-left:auto; font-size:11px; color:var(--tx3);">${statusCounts[s]}</span>
+        </label>
+      `).join('')}
+      <div style="margin-top:6px; display:flex; gap:4px;">
+        <button type="button" class="btn-sec" onclick="aplicarFiltroVagaStatus()" style="flex:1; justify-content: center;">Aplicar</button>
+      </div>
+    </div>
+  </div>
+
+  ${fsVagaList.length > 0 ? `<button class="btn-sec" onclick="limparFiltroVagaStatus()"><i class="ti ti-x"></i> Limpar filtro</button>` : ''}
 </div>
 <div class="grid-cards">${cardsHtml}</div>`;
 }
