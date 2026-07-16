@@ -602,6 +602,8 @@ let modalTempFeList = [];
 let candSortOrder = 'desc'; // 'asc' ou 'desc'
 let fsVagaList = [];        // lista de status selecionados para o filtro de vagas (Candidatos por Vaga)
 let tempFsVagaList = [];   // array temporário usado no dropdown
+let fsStatusList = [];        // lista de status selecionados para o filtro de vagas (aba Vagas)
+let tempFsStatusList = [];
 
 //========== MOTIVOS ========
 const MOTIVOS_REPROVACAO = [
@@ -835,7 +837,7 @@ function parseCSVLine(line) {
 // ========== NAVEGAÇÃO ==========
 function nav(p) {
   page = p; eid = null; modal = null; modalCandVagaId = null; _preSelectedVid = null;
-  fv = ''; fs = ''; feList = []; fvc = ''; fsVagaList = [];;
+  fv = ''; fs = ''; feList = []; fvc = ''; fsVagaList = []; fsStatusList = [];
   solicSubTab = 'criadas';
   vagaDash = '';
   document.querySelectorAll('.nav-btn').forEach((b, i) => b.classList.toggle('active', ['dashboard','vagas','candidatos','consolidado'][i] === p));
@@ -922,6 +924,47 @@ function aplicarFiltroVagaStatus() {
 function limparFiltroVagaStatus() {
   fsVagaList = [];
   tempFsVagaList = [];
+  renderP();
+}
+
+
+// --------------- drop down vagas status (aba Vagas) ----------------
+function toggleDropdownVagaStatusGeral() {
+  const dd = document.getElementById('dropdown-vaga-status-geral');
+  if (!dd) return;
+  if (dd.style.display === 'block') {
+    dd.style.display = 'none';
+    tempFsStatusList = [...fsStatusList];
+    return;
+  }
+  tempFsStatusList = [...fsStatusList];
+  dd.style.display = 'block';
+  const handler = (e) => {
+    if (!dd.contains(e.target) && e.target.id !== 'btn-vaga-status-geral') {
+      dd.style.display = 'none';
+      tempFsStatusList = [...fsStatusList];
+      document.removeEventListener('click', handler);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', handler), 10);
+}
+
+function onCheckVagaStatusGeral(status) {
+  const idx = tempFsStatusList.indexOf(status);
+  if (idx > -1) tempFsStatusList.splice(idx, 1);
+  else tempFsStatusList.push(status);
+}
+
+function aplicarFiltroVagaStatusGeral() {
+  fsStatusList = [...tempFsStatusList];
+  const dd = document.getElementById('dropdown-vaga-status-geral');
+  if (dd) dd.style.display = 'none';
+  renderP();
+}
+
+function limparFiltroVagaStatusGeral() {
+  fsStatusList = [];
+  tempFsStatusList = [];
   renderP();
 }
 
@@ -1294,7 +1337,10 @@ ${modal === 'vaga' ? mVaga() : ''}`;
     // ===== VISUALIZAÇÃO PARA GESTOR (FILTRADA POR SOLICITANTE) =====
     const vagasVisiveis = getVisibleVagas(); // Apenas vagas solicitadas pelo gestor logado
     const vagasAbertas = vagasVisiveis.filter(v => v.status === 'Aberta' || v.status === 'Em Andamento');
-    let filt = vagasVisiveis.filter(v => (!fs || v.status === fs) && (!fv || v.cargo.toLowerCase().includes(fv.toLowerCase()) || v.id.toLowerCase().includes(fv.toLowerCase())));
+    let filt = vagasVisiveis.filter(v => (fsStatusList.length === 0 || fsStatusList.includes(v.status)) && (!fv || v.cargo.toLowerCase().includes(fv.toLowerCase()) || v.id.toLowerCase().includes(fv.toLowerCase())));
+
+    const statusCountsGeral = {};
+    STATS.forEach(s => statusCountsGeral[s] = vagasVisiveis.filter(v => v.status === s).length);  
 
     const tabelaTodas = (lista) => lista.length === 0
       ? '<tr><td colspan="10"><div class="empty">Nenhuma vaga encontrada</div></td></tr>' // +1 coluna (Solicitante)
@@ -1341,10 +1387,24 @@ ${modal === 'vaga' ? mVaga() : ''}`;
 </div>
 <div class="filters">
   <input class="fi" placeholder="Buscar cargo, ID, empresa..." value="${ec(fv)}" onchange="fv=this.value;renderP()">
-  <select class="fi" onchange="fs=this.value;renderP()">
-    <option value="">Todos os status</option>
-    ${STATS.map(s => `<option ${fs === s ? 'selected' : ''}>${s}</option>`).join('')}
-  </select>
+  <div style="position:relative;">
+  <button type="button" id="btn-vaga-status-geral" class="btn-sec" onclick="toggleDropdownVagaStatusGeral()">
+    <i class="ti ti-filter"></i> Status ${fsStatusList.length > 0 ? `(${fsStatusList.length})` : ''}
+  </button>
+  <div id="dropdown-vaga-status-geral" style="position:absolute; top:100%; left:0; background:var(--surf); border:0.5px solid var(--border2); border-radius:var(--r); padding:8px; min-width:200px; z-index:100; display:none; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+    ${STATS.map(s => `
+      <label style="display:flex; align-items:center; gap:6px; padding:4px 0; cursor:pointer; font-size:13px;">
+        <input type="checkbox" ${tempFsStatusList.includes(s) ? 'checked' : ''} onchange="onCheckVagaStatusGeral('${s}')" style="width:auto;">
+        <span class="pill ${scls(s)}">${s}</span>
+        <span style="margin-left:auto; font-size:11px; color:var(--tx3);">${statusCountsGeral[s]}</span>
+      </label>
+    `).join('')}
+    <div style="margin-top:6px; display:flex; gap:4px;">
+      <button type="button" class="btn-sec" onclick="aplicarFiltroVagaStatusGeral()" style="flex:1; justify-content: center;">Aplicar</button>
+    </div>
+  </div>
+</div>
+${fsStatusList.length > 0 ? `<button class="btn-sec" onclick="limparFiltroVagaStatusGeral()"><i class="ti ti-x"></i> Limpar filtro</button>` : ''}
 </div>
 <div class="card" style="margin-bottom:1.5rem">
   <div class="card-title"><i class="ti ti-clipboard-list"></i> Minhas Vagas Cadastradas</div>
@@ -1740,7 +1800,10 @@ function switchSolicSubTab(sub) {
 function rVagasCriadas() {
   // Reaproveita o conteúdo atual da aba Vagas (tabelas de todas as vagas + abertas)
   const vagasAbertas = vagas.filter(v => v.status === 'Aberta' || v.status === 'Em Andamento');
-  let filt = vagas.filter(v => (!fs || v.status === fs) && (!fv || v.cargo.toLowerCase().includes(fv.toLowerCase()) || v.id.toLowerCase().includes(fv.toLowerCase())));
+  let filt = vagas.filter(v => (fsStatusList.length === 0 || fsStatusList.includes(v.status)) && (!fv || v.cargo.toLowerCase().includes(fv.toLowerCase()) || v.id.toLowerCase().includes(fv.toLowerCase())));
+
+  const statusCountsGeral = {};
+  STATS.forEach(s => statusCountsGeral[s] = vagas.filter(v => v.status === s).length);
 
   const tabelaTodas = (lista) => lista.length === 0
     ? '<tr><td colspan="9"><div class="empty">Nenhuma vaga encontrada</div></td></tr>'
@@ -1781,11 +1844,24 @@ function rVagasCriadas() {
   return `
 <div class="filters">
   <input class="fi" placeholder="Buscar cargo, ID, empresa..." value="${ec(fv)}" onchange="fv=this.value;renderP()">
-  <select class="fi" onchange="fs=this.value;renderP()">
-    <option value="">Todos os status</option>
-    ${STATS.map(s => `<option ${fs === s ? 'selected' : ''}>${s}</option>`).join('')}
-  </select>
+  <div style="position:relative;">
+  <button type="button" id="btn-vaga-status-geral" class="btn-sec" onclick="toggleDropdownVagaStatusGeral()">
+    <i class="ti ti-filter"></i> Status ${fsStatusList.length > 0 ? `(${fsStatusList.length})` : ''}
+  </button>
+  <div id="dropdown-vaga-status-geral" style="position:absolute; top:100%; left:0; background:var(--surf); border:0.5px solid var(--border2); border-radius:var(--r); padding:8px; min-width:200px; z-index:100; display:none; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+    ${STATS.map(s => `
+      <label style="display:flex; align-items:center; gap:6px; padding:4px 0; cursor:pointer; font-size:13px;">
+        <input type="checkbox" ${tempFsStatusList.includes(s) ? 'checked' : ''} onchange="onCheckVagaStatusGeral('${s}')" style="width:auto;">
+        <span class="pill ${scls(s)}">${s}</span>
+        <span style="margin-left:auto; font-size:11px; color:var(--tx3);">${statusCountsGeral[s]}</span>
+      </label>
+    `).join('')}
+    <div style="margin-top:6px; display:flex; gap:4px;">
+      <button type="button" class="btn-sec" onclick="aplicarFiltroVagaStatusGeral()" style="flex:1; justify-content: center;">Aplicar</button>
+    </div>
+  </div>
 </div>
+${fsStatusList.length > 0 ? `<button class="btn-sec" onclick="limparFiltroVagaStatusGeral()"><i class="ti ti-x"></i> Limpar filtro</button>` : ''}
 <div class="card" style="margin-bottom:1.5rem">
   <div class="card-title"><i class="ti ti-clipboard-list"></i> Todas as Vagas Cadastradas</div>
   <div class="tbl-wrap"><table><thead><tr>
@@ -2383,11 +2459,6 @@ function toggleJustificativa() {
   }
 }
 
-function toggleJustificativa() {
-  const etapa = document.getElementById('ci-et').value;
-  const divJust = document.getElementById('fg-justificativa');
-  if (divJust) divJust.style.display = etapa === 'Reprovado' ? 'flex' : 'none';
-}
 function toggleJustificativaOutro() {
   const sel = document.getElementById('ci-justificativa');
   const outroDiv = document.getElementById('fg-justificativa-outro');
