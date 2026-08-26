@@ -518,6 +518,101 @@ textarea { resize: none; min-height: 70px; }
   min-height: 0;              /* evita que o flex container force altura mínima */
 }
 
+
+/* ===== CARDS DE JUSTIFICATIVAS DE REPROVAÇÃO ===== */
+.justif-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+}
+.justif-card {
+  background: var(--surf2);
+  border: 0.5px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.justif-card-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  user-select: none;
+}
+.justif-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tx);
+}
+.justif-arrow {
+  font-size: 14px;
+  color: var(--tx3);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+.justif-card-bar-wrap {
+  height: 22px;
+  background: var(--surf);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.justif-card-bar {
+  height: 100%;
+  width: 100%;
+  background: #E24B4A;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  box-sizing: border-box;
+}
+.justif-card-bar span {
+  color: #fff;
+  font-weight: 600;
+  font-size: 11px;
+}
+.justif-card-sub {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 0.5px dashed var(--border2);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.justif-sub-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  /*background: #E3E8F0;*/
+  border-radius: 10px;
+  padding: 3px 2px;
+}
+.justif-sub-label {
+  flex: 1;
+  font-size: 12px;
+  color: var(--tx);
+  white-space: normal;
+  overflow-wrap: normal;
+  word-break: normal;
+  line-height: 1.3;
+}
+.justif-sub-count {
+  flex-shrink: 0;
+  background: #E24B4A;
+  color: #fff;
+  font-weight: 600;
+  font-size: 9px;
+  padding: 3px 10px;
+  border-radius: 10px;
+}
+.justif-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+  align-items: start; /* impede que os cards estiquem para acompanhar o mais alto da linha */
+}
+
 </style>
 </head>
 <body>
@@ -1102,7 +1197,7 @@ function rdash() {
   <div class="card-title"><i class="ti ti-chart-histogram"></i> Análise por Vaga</div>
   <select class="fi" onchange="vagaDash=this.value;renderP()" style="max-width:300px;margin-bottom:1rem;">
     <option value="">Selecione uma vaga...</option>
-    ${vagasVisiveis.filter(v => v.status !== 'Preenchida').map(v => `<option value="${v.id}" ${vagaDash === v.id ? 'selected' : ''}>${v.id} – ${ec(v.cargo)}</option>`).join('')}
+    ${vagasVisiveis.filter(v => v.status !== 'Outros').map(v => `<option value="${v.id}" ${vagaDash === v.id ? 'selected' : ''}>${v.id} – ${ec(v.cargo)}</option>`).join('')}
   </select>
   ${(() => {
     if (!vagaDash) return '<div class="empty">Selecione uma vaga para visualizar os dados.</div>';
@@ -1265,42 +1360,75 @@ function gerarGraficoBarrasMedias(medias) {
 
 function gerarGraficoJustificativas(vid) {
   const candsVaga = cands.filter(c => c.vid === vid && c.etapa === 'Reprovado');
-  
-  if (candsVaga.length === 0) {
-    return '';
-  }
+  if (candsVaga.length === 0) return '';
 
-  // Conta as justificativas
-  const contagem = {};
+  const grupos = {};
   candsVaga.forEach(c => {
-    let motivo = c.justificativa || 'Não informado';
-    // Se for "Outros" e tiver justificativa_outro, usa esse texto
-    if (motivo === 'Outros' && c.justificativa_outro) {
-      motivo = c.justificativa_outro;
+    let raw = c.justificativa || 'Não informado';
+    if (raw === 'Outros' && c.justificativa_outro) raw = c.justificativa_outro;
+
+    const idx = raw.indexOf(' - ');
+    const principal = idx > -1 ? raw.slice(0, idx) : raw;
+    const sub = idx > -1 ? raw.slice(idx + 3) : null;
+
+    if (!grupos[principal]) grupos[principal] = { total: 0, subs: {} };
+    grupos[principal].total++;
+
+    if (sub) {
+      grupos[principal].subs[sub] = (grupos[principal].subs[sub] || 0) + 1;
     }
-    contagem[motivo] = (contagem[motivo] || 0) + 1;
   });
 
-  // Ordena do maior para o menor
-  const sorted = Object.entries(contagem).sort((a, b) => b[1] - a[1]);
-  const maxCount = sorted[0][1];
-
-  // Cores para as barras (tons de vermelho/rosa)
-  const cores = ['#E24B4A', '#EF6B6B', '#F28B8B', '#F5A0A0', '#F8B5B5', '#FACACA'];
+  const principais = Object.entries(grupos).sort((a, b) => b[1].total - a[1].total);
 
   return `
-    <div style="display:flex; flex-direction:column; gap:10px;">
-      ${sorted.map(([motivo, qtd], i) => `
-        <div style="display:flex; align-items:center; gap:8px; font-size:12px;">
-          <span style="min-width:120px; text-align:right; color:var(--tx2); font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${motivo}">${motivo}</span>
-          <div style="flex:1; height:24px; background:var(--surf2); border-radius:6px; overflow:hidden; position:relative;">
-            <div style="width:${Math.round(qtd / maxCount * 100)}%; height:100%; background:${cores[i % cores.length]}; border-radius:6px; display:flex; align-items:center; justify-content:flex-end; padding-right:6px; box-sizing:border-box; min-width:40px;">
-              <span style="color:#fff; font-weight:600; font-size:11px; white-space:nowrap;">${qtd}</span>
-            </div>
+    <div class="justif-grid">
+      ${principais.map(([motivo, dados], i) => {
+        const subs = Object.entries(dados.subs).sort((a, b) => b[1] - a[1]);
+        const temSub = subs.length > 0;
+        const uid = `just-${vid}-${i}`;
+        return `
+        <div class="justif-card">
+          <div class="justif-card-hdr" ${temSub ? `onclick="toggleJustifCard('${uid}')" style="cursor:pointer;"` : ''}>
+            <span class="justif-card-title" title="${ec(motivo)}">${ec(motivo)}</span>
+            ${temSub ? `<i class="ti ti-chevron-down justif-arrow" id="arrow-${uid}"></i>` : ''}
           </div>
-        </div>
-      `).join('')}
+          <div class="justif-card-bar-wrap">
+            <div class="justif-card-bar"><span>${dados.total}</span></div>
+          </div>
+          ${temSub ? `
+          <div class="justif-card-sub" id="sub-${uid}" style="display:none;">
+            ${subs.map(([s, n]) => `
+              <div class="justif-sub-row">
+                <span class="justif-sub-label">${ec(s)}</span>
+                <span class="justif-sub-count">${n}</span>
+              </div>
+            `).join('')}
+          </div>` : ''}
+        </div>`;
+      }).join('')}
     </div>`;
+}
+
+function toggleJustifCard(uid) {
+  const sub = document.getElementById(`sub-${uid}`);
+  if (!sub) return;
+  const estaAberto = sub.style.display !== 'none';
+
+  // Fecha todos os cards de justificativa antes de decidir o que abrir
+  document.querySelectorAll('.justif-card-sub').forEach(el => {
+    el.style.display = 'none';
+  });
+  document.querySelectorAll('.justif-arrow').forEach(el => {
+    el.style.transform = 'rotate(0deg)';
+  });
+
+  // Se o card clicado não estava aberto, abre ele agora
+  if (!estaAberto) {
+    sub.style.display = 'flex';
+    const arrow = document.getElementById(`arrow-${uid}`);
+    if (arrow) arrow.style.transform = 'rotate(180deg)';
+  }
 }
 
 // ========== ABA VAGAS ==========
