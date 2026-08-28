@@ -763,6 +763,19 @@ async function loadDataFromFirestore() {
   });
   solicitacoes = sSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
   saveToLocalStorage();
+
+  vagas = vSnap.docs.map(doc => {
+    const data = doc.data();
+    if (!data.posicoes) {
+      data.posicoes = Array.from({ length: data.qtd || 1 }, (_, i) => ({ num: i + 1, status: data.status || 'Aberta' }));
+      data.qtd = data.posicoes.length;
+    }
+    if (!data.criterios) data.criterios = [];
+    if (!data.statusHistorico) {
+      data.statusHistorico = [{ status: data.status || 'Aberta', data: data.data || new Date().toISOString().slice(0,10) }];
+    }
+    return { ...data, id: doc.id };
+    });
 }
 // (save/delete funções mantidas)
 async function saveVagaToFirestore(vaga) { await db.collection('vagas').doc(vaga.id).set(vaga); saveToLocalStorage(); }
@@ -1326,9 +1339,9 @@ function calcularTempoMedioPorEtapaDeLista(candsFiltrados) {
 }
 
 function getCandidatosParaAnaliseTempo() {
-  const vagasEmAndamento = getVisibleVagas().filter(v => v.status === 'Em Andamento');
-  const vidsEmAndamento = vagasEmAndamento.map(v => v.id);
-  let candsFiltrados = getVisibleCands().filter(c => vidsEmAndamento.includes(c.vid));
+  const vagasConsideradas = getVisibleVagas().filter(v => vagaEsteveEmAndamentoNoPeriodo(v, tempoDataIni, tempoDataFim));
+  const vids = vagasConsideradas.map(v => v.id);
+  let candsFiltrados = getVisibleCands().filter(c => vids.includes(c.vid));
 
   if (tempoDataIni) candsFiltrados = candsFiltrados.filter(c => c.data_cand && c.data_cand >= tempoDataIni);
   if (tempoDataFim) candsFiltrados = candsFiltrados.filter(c => c.data_cand && c.data_cand <= tempoDataFim);
@@ -1339,10 +1352,9 @@ function getCandidatosParaAnaliseTempo() {
 function calcularTempoMedioGeral(candsFiltrados) {
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
-  const ativos = candsFiltrados.filter(c => c.etapa !== 'Contratado' && c.etapa !== 'Reprovado');
 
   let total = 0, count = 0;
-  ativos.forEach(c => {
+  candsFiltrados.forEach(c => {
     let dataInicio;
     if (c.historico && c.historico.length > 0) {
       dataInicio = new Date([...c.historico].sort((a, b) => new Date(a.data) - new Date(b.data))[0].data);
@@ -1352,7 +1364,19 @@ function calcularTempoMedioGeral(candsFiltrados) {
       return;
     }
     dataInicio.setHours(0, 0, 0, 0);
-    const diff = Math.round((hoje - dataInicio) / (1000 * 60 * 60 * 24));
+
+    // Se o candidato já finalizou (Contratado/Reprovado), o "fim" é a data
+    // em que ele chegou nessa etapa final. Caso contrário, considera até hoje.
+    let dataFim = hoje;
+    if (c.etapa === 'Contratado' || c.etapa === 'Reprovado') {
+      if (c.historico && c.historico.length > 0) {
+        const ultimo = [...c.historico].sort((a, b) => new Date(a.data) - new Date(b.data)).slice(-1)[0];
+        dataFim = new Date(ultimo.data);
+        dataFim.setHours(0, 0, 0, 0);
+      }
+    }
+
+    const diff = Math.round((dataFim - dataInicio) / (1000 * 60 * 60 * 24));
     if (diff >= 0) { total += diff; count++; }
   });
 
@@ -1363,7 +1387,7 @@ function gerarAnaliseTempo() {
   const candsFiltrados = getCandidatosParaAnaliseTempo();
   const medias = calcularTempoMedioPorEtapaDeLista(candsFiltrados);
   const tempoMedioGeral = calcularTempoMedioGeral(candsFiltrados);
-  const vagasEmAndamentoCount = getVisibleVagas().filter(v => v.status === 'Em Andamento').length;
+  const vagasEmAndamentoCount = getVisibleVagas().filter(v => vagaEsteveEmAndamentoNoPeriodo(v, tempoDataIni, tempoDataFim)).length;
   const ativosCount = candsFiltrados.filter(c => c.etapa !== 'Contratado' && c.etapa !== 'Reprovado').length;
 
   return `
@@ -1382,12 +1406,12 @@ function gerarAnaliseTempo() {
       <div style="font-size:11px;color:var(--tx3); margin-left:auto;">Considera apenas vagas "Em Andamento" (${vagasEmAndamentoCount})</div>
     </div>
     ${candsFiltrados.length === 0 ? '<div class="empty">Nenhum candidato encontrado no período selecionado.</div>' : `
-    <div style="display:grid; grid-template-columns:220px 1fr; gap:24px; align-items:start;">
-      <div style="background:var(--surf2); border-radius:12px; padding:1rem; text-align:center;">
+    <!--<div style="display:grid; grid-template-columns:220px 1fr; gap:24px; align-items:start;">
+     <div style="background:var(--surf2); border-radius:12px; padding:1rem; text-align:center;">
         <div style="font-size:32px; font-weight:600; color:var(--tx);">${tempoMedioGeral}<span style="font-size:14px;font-weight:500;color:var(--tx2);">d</span></div>
         <div style="font-size:12px;color:var(--tx2); margin-top:4px;">Tempo médio em processo</div>
-        <div style="font-size:10px;color:var(--tx3); margin-top:2px;">${ativosCount} candidato(s) ativo(s)</div>
-      </div>
+        <div style="font-size:10px;color:var(--tx3); margin-top:2px;">${candsFiltrados.length} candidato(s) no período${ativosCount > 0 ? ` · ${ativosCount} ativo(s)` : ''}</div>
+      </div> -->
       <div>
         <div style="font-size:12px;font-weight:600;color:var(--tx);margin-bottom:0.6rem;">Tempo médio por etapa (dias)</div>
         ${gerarGraficoBarrasMedias(medias)}
@@ -2237,7 +2261,6 @@ function mostrarLinkCopiar(link) {
 function recalcStatusVaga(vaga) {
   const contratados = cands.filter(c => c.vid === vaga.id && c.etapa === 'Contratado').length;
   const totalPosicoes = vaga.posicoes.length;
-  // Atualiza posições conforme contratados
   let preenchidas = 0;
   for (const pos of vaga.posicoes) {
     if (preenchidas < contratados) {
@@ -2247,17 +2270,46 @@ function recalcStatusVaga(vaga) {
       pos.status = 'Aberta';
     }
   }
-  // Status da vaga
+  let novoStatus;
   if (contratados >= totalPosicoes && totalPosicoes > 0) {
-    vaga.status = 'Preenchida';
+    novoStatus = 'Preenchida';
   } else if (cands.filter(c => c.vid === vaga.id).length > 0) {
-    vaga.status = 'Em Andamento';
+    novoStatus = 'Em Andamento';
   } else {
-    vaga.status = 'Aberta';
+    novoStatus = 'Aberta';
   }
-  if (vaga.status === 'Congelada' && contratados > 0) {
-    vaga.status = 'Em Andamento';
+  // Preserva Congelada se ainda não tiver contratado (agora funciona de verdade)
+  if (vaga.status === 'Congelada' && contratados === 0) {
+    novoStatus = 'Congelada';
   }
+  vaga.statusHistorico = registrarStatusVaga(vaga, novoStatus);
+  vaga.status = novoStatus;
+}
+
+function registrarStatusVaga(vagaAtual, novoStatus) {
+  const hist = vagaAtual?.statusHistorico ? [...vagaAtual.statusHistorico] : [];
+  const statusAnterior = hist.length > 0 ? hist[hist.length - 1].status : null;
+  if (statusAnterior !== novoStatus) {
+    hist.push({ status: novoStatus, data: new Date().toISOString() });
+  }
+  return hist;
+}
+
+function vagaEsteveEmAndamentoNoPeriodo(vaga, dataIni, dataFim) {
+  const hist = (vaga.statusHistorico && vaga.statusHistorico.length > 0)
+    ? [...vaga.statusHistorico].sort((a, b) => new Date(a.data) - new Date(b.data))
+    : [{ status: vaga.status, data: vaga.data || '1900-01-01' }];
+
+  const filtroIni = dataIni ? new Date(dataIni + 'T00:00:00') : new Date('1900-01-01');
+  const filtroFim = dataFim ? new Date(dataFim + 'T23:59:59') : new Date();
+
+  for (let i = 0; i < hist.length; i++) {
+    if (hist[i].status !== 'Em Andamento') continue;
+    const inicio = new Date(hist[i].data);
+    const fim = (i < hist.length - 1) ? new Date(hist[i + 1].data) : new Date(); // vigente até hoje
+    if (inicio <= filtroFim && fim >= filtroIni) return true;
+  }
+  return false;
 }
 
 function irParaPaginaVagasPreenchidas(pag) {
@@ -2817,6 +2869,7 @@ async function svV(ie) {
     posicoes,
     qtd: posicoes.length,
     status: statusGeral,
+    statusHistorico: registrarStatusVaga(vagaAtual, statusGeral),
     solicitanteEmail: vagaAtual?.solicitanteEmail || null,
     linkInscricao: linkInscricao
   };
