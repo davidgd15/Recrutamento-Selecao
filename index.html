@@ -138,7 +138,7 @@
 
 
 
-.content { padding: 1.5rem; max-width: 1200px; margin: 0 auto; width: 100%; }
+.content { padding: 1.5rem; max-width: 1300px; margin: 0 auto; width: 100%; }
 
 /* ===== DASHBOARD MELHORADO ===== */
 .dash-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
@@ -686,11 +686,14 @@ let vagas = [];
 let cands = [];
 let page = 'dashboard', modal = null, eid = null, modalCandVagaId = null;
 let fv = '', fs = '', fvc = '';
+let fMotivo = ''; // motivo
 let feList = [];
 let _preSelectedVid = null;
 let candSubTab = 'porVaga'; // 'porVaga' ou 'total'
 let paginaVagasPreenchidas = 1;
 let vagaDash = '';
+let tempoDataIni = ''; //tempo vagas
+let tempoDataFim = ''; //tempo vagas 
 let solicSubTab = 'criadas'; // 'criadas' ou 'solicitacoes'
 let solicitacoes = []; // armazena as solicitações dos gestores
 let modalFeList = [];
@@ -933,7 +936,7 @@ function parseCSVLine(line) {
 // ========== NAVEGAÇÃO ==========
 function nav(p) {
   page = p; eid = null; modal = null; modalCandVagaId = null; _preSelectedVid = null;
-  fv = ''; fs = ''; feList = []; fvc = ''; fsVagaList = []; fsStatusList = [];
+  fv = ''; fs = ''; feList = []; fvc = ''; fsVagaList = []; fsStatusList = []; fMotivo = '';
   solicSubTab = 'criadas';
   vagaDash = '';
   document.querySelectorAll('.nav-btn').forEach((b, i) => b.classList.toggle('active', ['dashboard','vagas','candidatos','consolidado'][i] === p));
@@ -1193,6 +1196,7 @@ function rdash() {
     </div>
   </div>
 </div>
+
 <div class="card" style="margin-bottom:1.25rem">
   <div class="card-title"><i class="ti ti-chart-histogram"></i> Análise por Vaga</div>
   <select class="fi" onchange="vagaDash=this.value;renderP()" style="max-width:300px;margin-bottom:1rem;">
@@ -1235,6 +1239,10 @@ function rdash() {
     `;
   })()}
 </div>
+
+${gerarAnaliseTempo()}
+
+
 <div class="recent-grid">
   <div class="activity-card">
     <div class="activity-title"><i class="ti ti-clock"></i> Atividade Recente</div>
@@ -1276,44 +1284,33 @@ function rdash() {
 
 function calcularTempoMedioPorEtapa(vid = null) {
   const candsFiltrados = vid ? cands.filter(c => c.vid === vid) : cands;
-  const medias = {};
+  return calcularTempoMedioPorEtapaDeLista(candsFiltrados);
+}
 
-  // Inicializa contadores para todas as etapas
-  ETAPAS.forEach(etapa => {
-    medias[etapa] = { totalDias: 0, count: 0, media: 0 };
-  });
+function calcularTempoMedioPorEtapaDeLista(candsFiltrados) {
+  const medias = {};
+  ETAPAS.forEach(etapa => { medias[etapa] = { totalDias: 0, count: 0, media: 0 }; });
 
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
 
   for (const c of candsFiltrados) {
     if (!c.historico || c.historico.length === 0) continue;
-
-    // Ordena o histórico por data
     const hist = [...c.historico].sort((a, b) => new Date(a.data) - new Date(b.data));
 
-    // Para cada entrada no histórico (exceto a última)
     for (let i = 0; i < hist.length; i++) {
       const etapa = hist[i].etapa;
-      
-      // Ignora etapas finais (não faz sentido calcular tempo nelas)
       if (etapa === 'Contratado' || etapa === 'Reprovado') continue;
 
       const dataEntrada = new Date(hist[i].data);
       dataEntrada.setHours(0, 0, 0, 0);
 
       let dataSaida;
-      if (i < hist.length - 1) {
-        // Tem próxima etapa → usa a data dela como saída
-        dataSaida = new Date(hist[i + 1].data);
-      } else {
-        // É a etapa atual → usa a data de hoje
-        dataSaida = new Date(hoje);
-      }
+      if (i < hist.length - 1) dataSaida = new Date(hist[i + 1].data);
+      else dataSaida = new Date(hoje);
       dataSaida.setHours(0, 0, 0, 0);
 
       const diffDias = Math.round((dataSaida - dataEntrada) / (1000 * 60 * 60 * 24));
-      
       if (diffDias >= 0 && medias[etapa]) {
         medias[etapa].totalDias += diffDias;
         medias[etapa].count++;
@@ -1321,14 +1318,88 @@ function calcularTempoMedioPorEtapa(vid = null) {
     }
   }
 
-  // Calcula as médias
   Object.keys(medias).forEach(etapa => {
-    if (medias[etapa].count > 0) {
-      medias[etapa].media = Math.round(medias[etapa].totalDias / medias[etapa].count);
-    }
+    if (medias[etapa].count > 0) medias[etapa].media = Math.round(medias[etapa].totalDias / medias[etapa].count);
   });
 
   return medias;
+}
+
+function getCandidatosParaAnaliseTempo() {
+  const vagasEmAndamento = getVisibleVagas().filter(v => v.status === 'Em Andamento');
+  const vidsEmAndamento = vagasEmAndamento.map(v => v.id);
+  let candsFiltrados = getVisibleCands().filter(c => vidsEmAndamento.includes(c.vid));
+
+  if (tempoDataIni) candsFiltrados = candsFiltrados.filter(c => c.data_cand && c.data_cand >= tempoDataIni);
+  if (tempoDataFim) candsFiltrados = candsFiltrados.filter(c => c.data_cand && c.data_cand <= tempoDataFim);
+
+  return candsFiltrados;
+}
+
+function calcularTempoMedioGeral(candsFiltrados) {
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const ativos = candsFiltrados.filter(c => c.etapa !== 'Contratado' && c.etapa !== 'Reprovado');
+
+  let total = 0, count = 0;
+  ativos.forEach(c => {
+    let dataInicio;
+    if (c.historico && c.historico.length > 0) {
+      dataInicio = new Date([...c.historico].sort((a, b) => new Date(a.data) - new Date(b.data))[0].data);
+    } else if (c.data_cand) {
+      dataInicio = new Date(c.data_cand);
+    } else {
+      return;
+    }
+    dataInicio.setHours(0, 0, 0, 0);
+    const diff = Math.round((hoje - dataInicio) / (1000 * 60 * 60 * 24));
+    if (diff >= 0) { total += diff; count++; }
+  });
+
+  return count > 0 ? Math.round(total / count) : 0;
+}
+
+function gerarAnaliseTempo() {
+  const candsFiltrados = getCandidatosParaAnaliseTempo();
+  const medias = calcularTempoMedioPorEtapaDeLista(candsFiltrados);
+  const tempoMedioGeral = calcularTempoMedioGeral(candsFiltrados);
+  const vagasEmAndamentoCount = getVisibleVagas().filter(v => v.status === 'Em Andamento').length;
+  const ativosCount = candsFiltrados.filter(c => c.etapa !== 'Contratado' && c.etapa !== 'Reprovado').length;
+
+  return `
+  <div class="card" style="margin-bottom:1.25rem">
+    <div class="card-title"><i class="ti ti-hourglass"></i> Análise de Tempo</div>
+    <div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; margin-bottom:1rem;">
+      <div class="fg" style="max-width:160px;">
+        <label>De</label>
+        <input type="date" class="fi" value="${tempoDataIni}" onchange="tempoDataIni=this.value;renderP()">
+      </div>
+      <div class="fg" style="max-width:160px;">
+        <label>Até</label>
+        <input type="date" class="fi" value="${tempoDataFim}" onchange="tempoDataFim=this.value;renderP()">
+      </div>
+      ${(tempoDataIni || tempoDataFim) ? `<button class="btn-sec" onclick="limparFiltroTempo()"><i class="ti ti-x"></i> Limpar filtro</button>` : ''}
+      <div style="font-size:11px;color:var(--tx3); margin-left:auto;">Considera apenas vagas "Em Andamento" (${vagasEmAndamentoCount})</div>
+    </div>
+    ${candsFiltrados.length === 0 ? '<div class="empty">Nenhum candidato encontrado no período selecionado.</div>' : `
+    <div style="display:grid; grid-template-columns:220px 1fr; gap:24px; align-items:start;">
+      <div style="background:var(--surf2); border-radius:12px; padding:1rem; text-align:center;">
+        <div style="font-size:32px; font-weight:600; color:var(--tx);">${tempoMedioGeral}<span style="font-size:14px;font-weight:500;color:var(--tx2);">d</span></div>
+        <div style="font-size:12px;color:var(--tx2); margin-top:4px;">Tempo médio em processo</div>
+        <div style="font-size:10px;color:var(--tx3); margin-top:2px;">${ativosCount} candidato(s) ativo(s)</div>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--tx);margin-bottom:0.6rem;">Tempo médio por etapa (dias)</div>
+        ${gerarGraficoBarrasMedias(medias)}
+      </div>
+    </div>`}
+  </div>`;
+}
+
+function limparFiltroTempo() {
+  tempoDataIni = '';
+  tempoDataFim = '';
+  renderP();
 }
 
 function gerarGraficoBarrasMedias(medias) {
@@ -1412,23 +1483,11 @@ function gerarGraficoJustificativas(vid) {
 
 function toggleJustifCard(uid) {
   const sub = document.getElementById(`sub-${uid}`);
+  const arrow = document.getElementById(`arrow-${uid}`);
   if (!sub) return;
-  const estaAberto = sub.style.display !== 'none';
-
-  // Fecha todos os cards de justificativa antes de decidir o que abrir
-  document.querySelectorAll('.justif-card-sub').forEach(el => {
-    el.style.display = 'none';
-  });
-  document.querySelectorAll('.justif-arrow').forEach(el => {
-    el.style.transform = 'rotate(0deg)';
-  });
-
-  // Se o card clicado não estava aberto, abre ele agora
-  if (!estaAberto) {
-    sub.style.display = 'flex';
-    const arrow = document.getElementById(`arrow-${uid}`);
-    if (arrow) arrow.style.transform = 'rotate(180deg)';
-  }
+  const aberto = sub.style.display !== 'none';
+  sub.style.display = aberto ? 'none' : 'flex';
+  if (arrow) arrow.style.transform = aberto ? 'rotate(0deg)' : 'rotate(180deg)';
 }
 
 // ========== ABA VAGAS ==========
@@ -1665,32 +1724,33 @@ function rcandsPorVaga() {
 // Tabela com todos os candidatos
 function rcandsTotal() {
   const busca = fv.toLowerCase();
+  const buscaMotivo = fMotivo.toLowerCase();
   const candsVisiveis = getVisibleCands();
 
-  // Inicializa tempFeList a partir de feList toda vez que renderiza
   tempFeList = [...feList];
 
   let filtrados = candsVisiveis.filter(c => {
-  const matchBusca = !busca || c.nome.toLowerCase().includes(busca) || c.id.toLowerCase().includes(busca);
-  const matchEtapa = feList.length === 0 || feList.includes(c.etapa);
-  return matchBusca && matchEtapa;
-});
+    const matchBusca = !busca || c.nome.toLowerCase().includes(busca) || c.id.toLowerCase().includes(busca);
+    const matchEtapa = feList.length === 0 || feList.includes(c.etapa);
+    const matchMotivo = !buscaMotivo || (c.justificativa && c.justificativa.toLowerCase().includes(buscaMotivo));
+    return matchBusca && matchEtapa && matchMotivo;
+  });
 
-// ORDENAÇÃO por ID
-filtrados.sort((a, b) => {
-  const numA = parseInt(a.id.replace('C','')) || 0;
-  const numB = parseInt(b.id.replace('C','')) || 0;
-  return candSortOrder === 'desc' ? numB - numA : numA - numB;
-});
+  filtrados.sort((a, b) => {
+    const numA = parseInt(a.id.replace('C','')) || 0;
+    const numB = parseInt(b.id.replace('C','')) || 0;
+    return candSortOrder === 'desc' ? numB - numA : numA - numB;
+  });
 
-  // Conta quantos candidatos em cada etapa para mostrar nos checkboxes
   const etapaCounts = {};
   ETAPAS.forEach(e => etapaCounts[e] = candsVisiveis.filter(c => c.etapa === e).length);
 
   const tabela = filtrados.length === 0
-    ? '<tr><td colspan="7"><div class="empty">Nenhum candidato encontrado</div></td></tr>'
+    ? '<tr><td colspan="8"><div class="empty">Nenhum candidato encontrado</div></td></tr>'
     : filtrados.map(c => {
         const v = vagas.find(vv => vv.id === c.vid);
+        let motivoTexto = c.justificativa || '';
+        if (motivoTexto === 'Outros' && c.justificativa_outro) motivoTexto = c.justificativa_outro;
         return `<tr>
           <td><span class="td-id" style="color:#a78bfa; width:60px">${c.id}</span></td>
           <td  class="td-nome"><div style="display:flex;align-items:center;gap:7px"><div class="avatar" style="width:24px;height:24px;border-radius:6px;font-size:10px;background:${avbg(c.nome)};color:${avtx(c.nome)}">${initials(c.nome)}</div>${ec(c.nome)}</div></td>
@@ -1701,8 +1761,8 @@ filtrados.sort((a, b) => {
               <i class="ti ti-brand-whatsapp" style="font-size: 16px;"></i>
             </a>
           </td>
-          <td style="font-size:11px;color:var(--tx2)">${ec(c.email)}</td>
           <td><span class="pill ${eclsf(c.etapa)}">${c.etapa}</span></td>
+          <td title="${ec(motivoTexto)}" style="font-size:11px;color:var(--tx2)">${ec(motivoTexto)}</td>
           <td><div class="act-row">
             <button class="ibtn" title="Editar" onclick="editC('${c.id}')"><i class="ti ti-pencil"></i></button>
             <button class="ibtn fwd" title="Avançar" onclick="avancar('${c.id}')"><i class="ti ti-arrow-right"></i></button>
@@ -1714,8 +1774,8 @@ filtrados.sort((a, b) => {
   return `
 <div class="filters" style="display:flex; gap:8px; align-items:flex-start; flex-wrap:wrap;">
   <input class="fi" placeholder="Buscar por nome ou ID..." value="${ec(fv)}" onchange="fv=this.value;renderP()" style="min-width:250px;">
-  
-  <!-- Dropdown de múltiplas etapas -->
+  <input class="fi" placeholder="Buscar por motivo..." value="${ec(fMotivo)}" onchange="fMotivo=this.value;renderP()" style="min-width:200px;">
+
   <div style="position:relative;">
     <button type="button" id="btn-etapas" class="btn-sec" onclick="toggleDropdownEtapas()">
       <i class="ti ti-filter"></i> Etapas ${feList.length > 0 ? `(${feList.length})` : ''}
@@ -1733,24 +1793,23 @@ filtrados.sort((a, b) => {
       </div>
     </div>
   </div>
-   <!-- Botão de ordenação -->
-      <button class="btn-sec" onclick="toggleCandSortOrder()" title="Alternar ordem dos IDs">
-        <i class="ti ti-arrow-${candSortOrder === 'desc' ? 'down' : 'up'}"></i> ID ${candSortOrder === 'desc' ? 'decrescente' : 'crescente'}
-      </button>
+  <button class="btn-sec" onclick="toggleCandSortOrder()" title="Alternar ordem dos IDs">
+    <i class="ti ti-arrow-${candSortOrder === 'desc' ? 'down' : 'up'}"></i> ID ${candSortOrder === 'desc' ? 'decrescente' : 'crescente'}
+  </button>
 
   ${feList.length > 0 ? `<button class="btn-sec" onclick="limparFiltroEtapas()"><i class="ti ti-x"></i> Limpar filtro</button>` : ''}
+  ${fMotivo ? `<button class="btn-sec" onclick="fMotivo='';renderP()"><i class="ti ti-x"></i> Limpar motivo</button>` : ''}
 </div>
 
-<!-- O restante da tabela permanece igual -->
 <div class="tbl-wrap">
 <table>
 <thead><tr>
   <th style="width:70px">ID</th>
-  <th style="width:180px">Candidato</th>
-  <th style="width:200px">Vaga</th>
-  <th style="width:140px">Telefone</th>
-  <th style="width:180px">Email</th>
-  <th style="width:120px">Etapa</th>
+  <th style="width:160px">Candidato</th>
+  <th style="width:180px">Vaga</th>
+  <th style="width:130px">Telefone</th>
+  <th style="width:110px">Etapa</th>
+  <th style="width:180px">Motivo</th>
   <th style="width:90px">Ações</th>
 </tr></thead>
 <tbody>${tabela}</tbody>
