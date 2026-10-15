@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" href="img1.png" type="image/png">
 <title>Recrutamento & Seleção</title>
+<script>try { const savedTheme = localStorage.getItem("rh-theme"); if (savedTheme === "dark" || savedTheme === "light") document.documentElement.dataset.theme = savedTheme; } catch (e) {}</script>
 
 <!-- Tabler Icons -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
@@ -18,6 +19,10 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="runtime-config.js"></script>
+<script src="supabase-assets.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <style>
 :root {
@@ -126,6 +131,14 @@
 .nav-btn:hover { background: rgba(255,255,255,0.07); color: #e5e7eb; }
 .nav-btn.active { background: #4f8ef7; color: #fff; }
 .nav-btn i { font-size: 15px; }
+
+.nav-sep {
+  color: #4b5563;
+  font-size: 18px;
+  align-self: center;
+  padding: 0 6px;
+  user-select: none;
+}
 
 
 .user-btn{
@@ -237,6 +250,8 @@
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1.25rem; }
 .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 1.25rem; }
 .grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.cand-vaga-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 760px) { .cand-vaga-grid { grid-template-columns: 1fr; } }
 
 .card { background: var(--surf); border: 0.5px solid var(--border); border-radius: var(--r2); padding: 1.25rem; }
 .card-title { font-size: 11px; font-weight: 500; color: var(--tx2); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 1rem; }
@@ -281,7 +296,7 @@ tr:hover td { background: var(--surf2); }
 .s-aberta { background: #E6F1FB; color: #0C447C; }
 .s-andamento { background: #FAEEDA; color: #633806; }
 .s-preenchida { background: #EAF3DE; color: #27500A; }
-.s-cancelada { background: #F1EFE8; color: #444441; }
+.s-cancelada { background: #FCEBEB; color: #791F1F; }
 
 .e-triagem { background: #EEEDFE; color: #3C3489; }
 .e-rh { background: #E6F1FB; color: #0C447C; }
@@ -440,6 +455,8 @@ textarea { resize: none; min-height: 70px; }
   color: #fff;
   border-color: #4f8ef7;
 }
+.consolidado-pagination { min-height: 44px; align-items: flex-start; }
+.consolidado-spacer td { height: 42px; }
 
 /* ===== CÉLULAS DE NOME SEM TRUNCAMENTO ===== */
 .td-nome {
@@ -613,7 +630,261 @@ textarea { resize: none; min-height: 70px; }
   align-items: start; /* impede que os cards estiquem para acompanhar o mais alto da linha */
 }
 
-</style>
+
+.tbl-scroll { max-height: 600px; overflow-y: auto; }
+.tbl-scroll th { position: sticky; top: 0; z-index: 1; }
+
+
+.theme-switch {
+  --toggle-size: 13px;
+  --container-width: 5.625em;
+  --container-height: 2.5em;
+  --container-radius: 6.25em;
+  --container-light-bg: #3d7eae;
+  --container-night-bg: #1d1f2c;
+  --circle-container-diameter: 3.375em;
+  --sun-moon-diameter: 2.125em;
+  --sun-bg: #ecca2f;
+  --moon-bg: #c4c9d1;
+  --spot-color: #959db1;
+  --circle-container-offset: calc(
+    (var(--circle-container-diameter) - var(--container-height)) / 2 * -1
+  );
+  --stars-color: #fff;
+  --clouds-color: #f3fdff;
+  --back-clouds-color: #aacadf;
+  --transition: 0.5s cubic-bezier(0, -0.02, 0.4, 1.25);
+  --circle-transition: 0.3s cubic-bezier(0, -0.02, 0.35, 1.17);
+  display: inline-block;
+  flex: none;
+}
+.theme-switch,
+.theme-switch *,
+.theme-switch *::before,
+.theme-switch *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-size: var(--toggle-size);
+}
+.theme-switch__container {
+  width: var(--container-width);
+  height: var(--container-height);
+  background-color: var(--container-light-bg);
+  border-radius: var(--container-radius);
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow:
+    0em -0.062em 0.062em rgba(0, 0, 0, 0.25),
+    0em 0.062em 0.125em rgba(255, 255, 255, 0.94);
+  transition: var(--transition);
+  position: relative;
+}
+.theme-switch__container::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  box-shadow:
+    0em 0.05em 0.187em rgba(0, 0, 0, 0.25) inset,
+    0em 0.05em 0.187em rgba(0, 0, 0, 0.25) inset;
+  border-radius: var(--container-radius);
+}
+.theme-switch__checkbox {
+  display: none;
+}
+.theme-switch__circle-container {
+  width: var(--circle-container-diameter);
+  height: var(--circle-container-diameter);
+  background-color: rgba(255, 255, 255, 0.1);
+  position: absolute;
+  left: var(--circle-container-offset);
+  top: var(--circle-container-offset);
+  border-radius: var(--container-radius);
+  box-shadow:
+    inset 0 0 0 3.375em rgba(255, 255, 255, 0.1),
+    inset 0 0 0 3.375em rgba(255, 255, 255, 0.1),
+    0 0 0 0.625em rgba(255, 255, 255, 0.1),
+    0 0 0 1.25em rgba(255, 255, 255, 0.1);
+  display: flex;
+  transition: var(--circle-transition);
+  pointer-events: none;
+}
+.theme-switch__sun-moon-container {
+  pointer-events: auto;
+  position: relative;
+  z-index: 2;
+  width: var(--sun-moon-diameter);
+  height: var(--sun-moon-diameter);
+  margin: auto;
+  border-radius: var(--container-radius);
+  background-color: var(--sun-bg);
+  box-shadow:
+    0.062em 0.062em 0.062em 0em rgba(254, 255, 239, 0.61) inset,
+    0em -0.062em 0.062em 0em #a1872a inset;
+  filter: drop-shadow(0.062em 0.125em 0.125em rgba(0, 0, 0, 0.25))
+    drop-shadow(0em 0.062em 0.125em rgba(0, 0, 0, 0.25));
+  overflow: hidden;
+  transition: var(--transition);
+}
+.theme-switch__moon {
+  transform: translateX(100%);
+  width: 100%;
+  height: 100%;
+  background-color: var(--moon-bg);
+  border-radius: inherit;
+  box-shadow:
+    0.062em 0.062em 0.062em 0em rgba(254, 255, 239, 0.61) inset,
+    0em -0.062em 0.062em 0em #969696 inset;
+  transition: var(--transition);
+  position: relative;
+}
+.theme-switch__spot {
+  position: absolute;
+  top: 0.75em;
+  left: 0.312em;
+  width: 0.75em;
+  height: 0.75em;
+  border-radius: var(--container-radius);
+  background-color: var(--spot-color);
+  box-shadow: 0em 0.0312em 0.062em rgba(0, 0, 0, 0.25) inset;
+}
+.theme-switch__spot:nth-of-type(2) {
+  width: 0.375em;
+  height: 0.375em;
+  top: 0.937em;
+  left: 1.375em;
+}
+.theme-switch__spot:nth-last-of-type(3) {
+  width: 0.25em;
+  height: 0.25em;
+  top: 0.312em;
+  left: 0.812em;
+}
+.theme-switch__clouds {
+  width: 1.25em;
+  height: 1.25em;
+  background-color: var(--clouds-color);
+  border-radius: var(--container-radius);
+  position: absolute;
+  bottom: -0.625em;
+  left: 0.312em;
+  box-shadow:
+    0.937em 0.312em var(--clouds-color),
+    -0.312em -0.312em var(--back-clouds-color),
+    1.437em 0.375em var(--clouds-color),
+    0.5em -0.125em var(--back-clouds-color),
+    2.187em 0 var(--clouds-color),
+    1.25em -0.062em var(--back-clouds-color),
+    2.937em 0.312em var(--clouds-color),
+    2em -0.312em var(--back-clouds-color),
+    3.625em -0.062em var(--clouds-color),
+    2.625em 0em var(--back-clouds-color),
+    4.5em -0.312em var(--clouds-color),
+    3.375em -0.437em var(--back-clouds-color),
+    4.625em -1.75em 0 0.437em var(--clouds-color),
+    4em -0.625em var(--back-clouds-color),
+    4.125em -2.125em 0 0.437em var(--back-clouds-color);
+  transition: 0.5s cubic-bezier(0, -0.02, 0.4, 1.25);
+}
+.theme-switch__stars-container {
+  position: absolute;
+  color: var(--stars-color);
+  top: -100%;
+  left: 0.312em;
+  width: 2.75em;
+  height: auto;
+  transition: var(--transition);
+}
+.theme-switch__checkbox:checked + .theme-switch__container {
+  background-color: var(--container-night-bg);
+}
+.theme-switch__checkbox:checked
+  + .theme-switch__container
+  .theme-switch__circle-container {
+  left: calc(
+    100% - var(--circle-container-offset) - var(--circle-container-diameter)
+  );
+}
+.theme-switch__checkbox:checked
+  + .theme-switch__container
+  .theme-switch__circle-container:hover {
+  left: calc(
+    100% - var(--circle-container-offset) - var(--circle-container-diameter) -
+      0.187em
+  );
+}
+.theme-switch__circle-container:hover {
+  left: calc(var(--circle-container-offset) + 0.187em);
+}
+.theme-switch__checkbox:checked + .theme-switch__container .theme-switch__moon {
+  transform: translate(0);
+}
+.theme-switch__checkbox:checked
+  + .theme-switch__container
+  .theme-switch__clouds {
+  bottom: -4.062em;
+}
+.theme-switch__checkbox:checked
+  + .theme-switch__container
+  .theme-switch__stars-container {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Tema escuro: superfícies em índigo profundo para preservar a identidade visual. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-background-primary: #191e2d;
+  --color-background-secondary: #202638;
+  --color-background-tertiary: #111522;
+  --color-border-primary: #333b52;
+  --color-border-secondary: #3b455e;
+  --color-border-tertiary: #2b3348;
+  --color-text-primary: #edf1fb;
+  --color-text-secondary: #bbc4d8;
+  --color-text-tertiary: #909bb2;
+  --brand: #111522;
+  --brand2: #191e2d;
+}
+:root[data-theme="dark"] body,
+:root[data-theme="dark"] .app { background: var(--color-background-tertiary); color: var(--tx); }
+:root[data-theme="dark"] .metric-card { background: linear-gradient(135deg, #202638 0%, #191e2d 100%); }
+:root[data-theme="dark"] .activity-avatar { background: #2a3450; color: #d6def2; }
+:root[data-theme="dark"] .btn-pill { background: #253552; color: #9dc2ff; }
+:root[data-theme="dark"] .btn-pill:hover { background: #304366; }
+:root[data-theme="dark"] .login-box { background: #191e2d; color: var(--tx); border: 1px solid var(--border2); }
+:root[data-theme="dark"] .login-box input,
+:root[data-theme="dark"] .login-box select { background: #111522; color: #edf1fb; border-color: #3b455e; }
+:root[data-theme="dark"] .modal-bg { background: rgba(4, 7, 14, .72); }
+:root[data-theme="dark"] .s-congelada { background: #29364a; color: #c6d5e8; }
+:root[data-theme="dark"] .e-gestor { background: #392a48; color: #e3b8ee; }
+:root[data-theme="dark"] .toast { border-color: #3b455e; }
+:root[data-theme="dark"] .user-btn { color: #c3cbe0; }
+.topbar-user-name { color: #fff !important; -webkit-text-fill-color: #fff !important; }
+@media (max-width: 1050px) { .theme-switch { --toggle-size: 11px; } }
+/* Transição suave das superfícies, textos, bordas e elementos dos gráficos. */
+.app, .app *:not(.theme-switch):not(.theme-switch *) {
+  transition: background-color .28s ease, color .28s ease, border-color .28s ease,
+    fill .28s ease, stroke .28s ease, box-shadow .28s ease, transform .15s ease, opacity .2s ease;
+}
+:root[data-theme="dark"] .chart-title i,
+:root[data-theme="dark"] .metric-icon i,
+:root[data-theme="dark"] .mcard-icon i,
+:root[data-theme="dark"] .at-kpi-ico i { color: inherit; }
+:root[data-theme="dark"] .dash-grid > .metric-card:nth-child(1) .metric-icon { background: linear-gradient(135deg, #263c60, #304d78) !important; color: #a9ceff !important; }
+:root[data-theme="dark"] .dash-grid > .metric-card:nth-child(2) .metric-icon { background: linear-gradient(135deg, #49391f, #604a27) !important; color: #ffd38a !important; }
+:root[data-theme="dark"] .dash-grid > .metric-card:nth-child(3) .metric-icon { background: linear-gradient(135deg, #214236, #2b5847) !important; color: #9ce0bd !important; }
+:root[data-theme="dark"] .dash-grid > .metric-card:nth-child(4) .metric-icon { background: linear-gradient(135deg, #3c3157, #514071) !important; color: #d2baff !important; }
+:root[data-theme="dark"] .chart-title i { color: #9dbdff; }
+:root[data-theme="dark"] .donut-wrap svg { filter: drop-shadow(0 2px 5px rgba(0,0,0,.22)); }
+:root[data-theme="dark"] .legend-dot { box-shadow: 0 0 0 2px rgba(237,241,251,.08); }
+:root[data-theme="dark"] .td-id { color: #a9bdff !important; }
+:root[data-theme="dark"] .avatar { filter: saturate(.82) brightness(1.12); }
+:root[data-theme="dark"] .metric-label,
+:root[data-theme="dark"] .card-title,
+:root[data-theme="dark"] .legend-label,
+:root[data-theme="dark"] .activity-title { color: #c5cde0; }</style>
 </head>
 <body>
 
@@ -622,14 +893,8 @@ textarea { resize: none; min-height: 70px; }
 
 <script>
 // ========== CONFIGURAÇÃO FIREBASE ==========
-const firebaseConfig = {
-  apiKey: "AIzaSyA_-Q3zInSH4T58xwHIrHkt9v335uvZSSs",
-  authDomain: "recrutamento-selecao-9d775.firebaseapp.com",
-  projectId: "recrutamento-selecao-9d775",
-  storageBucket: "recrutamento-selecao-9d775.firebasestorage.app",
-  messagingSenderId: "1012914036686",
-  appId: "1:1012914036686:web:efe48fede40414b536959f"
-};
+const firebaseConfig = window.APP_CONFIG?.firebase;
+if (!firebaseConfig) throw new Error("Configuração Firebase ausente. Execute node generate-config.mjs.");
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
@@ -668,7 +933,7 @@ function getVisibleCands() {
 // ========== DADOS ==========
 const ETAPAS = ['Triagem', 'Entrevista RH', 'Teste','Entrevista Gestor','Entrevista Diretor', 'Entrevista Extra', 'Proposta','Admissão','Contratado','Reprovado'];
 const PRIS = ['Selecione','Baixa','Média','Alta'];
-const STATS = ['Aberta','Em Andamento','Preenchida','Congelada'];  // ALTERADO
+const STATS = ['Aberta','Em Andamento','Preenchida','Congelada','Cancelada'];
 const EMPRESAS = ['Selecione','Energia','Engenharia','GD','Netz'];
 const LOCAIS = ['Selecione','PRPB','SGS','POA','SP','Minduri','BH','Alfenas'];
 const ORIGENS = ['E-mail','LinkedIn','Indeed','Indicação','Outro'];
@@ -691,6 +956,7 @@ let feList = [];
 let _preSelectedVid = null;
 let candSubTab = 'porVaga'; // 'porVaga' ou 'total'
 let paginaVagasPreenchidas = 1;
+let paginaCandidatosContratados = 1;
 let vagaDash = '';
 let tempoDataIni = ''; //tempo vagas
 let tempoDataFim = ''; //tempo vagas 
@@ -703,6 +969,11 @@ let fsVagaList = [];        // lista de status selecionados para o filtro de vag
 let tempFsVagaList = [];   // array temporário usado no dropdown
 let fsStatusList = [];        // lista de status selecionados para o filtro de vagas (aba Vagas)
 let tempFsStatusList = [];
+let ativos = [];
+let ativosBusca = '';
+let ativosOrdenacao = { campo: '', direcao: 1 };
+let ativosFiltros = { tipo: [], colaborador: [], local: [] };
+let ativosTemp    = { tipo: [], colaborador: [], local: [] };
 
 //========== MOTIVOS ========
 const MOTIVOS_REPROVACAO = [
@@ -952,14 +1223,28 @@ function nav(p) {
   fv = ''; fs = ''; feList = []; fvc = ''; fsVagaList = []; fsStatusList = []; fMotivo = '';
   solicSubTab = 'criadas';
   vagaDash = '';
-  document.querySelectorAll('.nav-btn').forEach((b, i) => b.classList.toggle('active', ['dashboard','vagas','candidatos','consolidado'][i] === p));
+  document.querySelectorAll('.nav-btn').forEach((b, i) => b.classList.toggle('active', ['dashboard','vagas','candidatos','consolidado','ativos'][i] === p));
   render();
+  if (p === 'ativos') {
+    window.assetsDb.from('ativos').select('*').order('id').then(({ data, error }) => {
+      if (error) throw error;
+      ativos = data || [];
+      renderP();
+    }).catch(error => {
+      console.error('Falha ao atualizar ativos do Supabase', error);
+      showToast('Não foi possível atualizar a lista de ativos.');
+    });
+  }
 }
 
 // ========== UTILITÁRIOS ==========
 function ec(s) { return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function getActorName() {
+  const email = currentUser?.email?.toLowerCase();
+  return USERS.find(u => u.email.toLowerCase() === email)?.name || currentUser?.displayName || currentUser?.email || 'Usuário';
+}
 function pcls(p) { return p === 'Alta' ? 'p-alta' : p === 'Média' ? 'p-media' : 'p-baixa'; }
-function scls(s) { return s === 'Aberta' ? 's-aberta' : s === 'Em Andamento' ? 's-andamento' : s === 'Preenchida' ? 's-preenchida' : 's-congelada'; } // ALTERADO
+function scls(s) { return s === 'Aberta' ? 's-aberta' : s === 'Em Andamento' ? 's-andamento' : s === 'Preenchida' ? 's-preenchida' : s === 'Cancelada' ? 's-cancelada' : 's-congelada'; }
 function eclsf(e) {
   const m = { 
     'Triagem':'e-triagem', 
@@ -986,7 +1271,7 @@ function nxtC() { const ns = cands.map(c => parseInt(c.id.replace('C','')) || 0)
 function gerarDonut(dados, cores, centroLabel) {
   const total = Object.values(dados).reduce((a,b)=>a+b,0);
   if (total === 0) {
-    return `<div class="donut-wrap"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke="#e9ecef" stroke-width="16"/></svg><div class="donut-center"><div class="donut-total">0</div><div class="donut-sub">${centroLabel}</div></div></div>`;
+    return `<div class="donut-wrap"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke="var(--border2)" stroke-width="16"/></svg><div class="donut-center"><div class="donut-total">0</div><div class="donut-sub">${centroLabel}</div></div></div>`;
   }
   const raio = 40; const circ = 2 * Math.PI * raio; let offset = 0;
   const slices = Object.entries(dados).map(([label, valor]) => {
@@ -1139,27 +1424,28 @@ function render() {
   else if (page === 'vagas') mc.innerHTML = rvagas();
   else if (page === 'candidatos') mc.innerHTML = rcands();
   else if (page === 'consolidado') mc.innerHTML = rconsol();
+  else if (page === 'ativos') mc.innerHTML = rativos();
 }
 
-const etapaColors = { 
-  'Triagem':'#7F77DD', 
-  'Teste':'#4BACC6',           // nova cor, ou mantenha '#678091' 
-  'Entrevista RH':'#4f8ef7', 
-  'Entrevista Técnica':'#EF9F27', 
-  'Entrevista Gestor':'#ff8cfd', 
-  'Entrevista Diretor':'#D81B60', // novo
-  'Entrevista Extra':'#7E57C2',   // novo
-  'Proposta':'#1D9E75',
-  'Admissão':'#065F46',
-  'Contratado':'#639922', 
-  'Reprovado':'#E24B4A' 
+const etapaColorsDark = {
+  'Triagem':'#a99cff', 'Teste':'#66d2e8', 'Entrevista RH':'#79adff',
+  'Entrevista Técnica':'#ffc266', 'Entrevista Gestor':'#f5a0fa',
+  'Entrevista Diretor':'#ff7fa7', 'Entrevista Extra':'#c1a0ff',
+  'Proposta':'#62d6b1', 'Admissão':'#73dfac', 'Contratado':'#a6dc75', 'Reprovado':'#ff817b'
 };
+const etapaColorsLight = {
+  'Triagem':'#7F77DD', 'Teste':'#4BACC6', 'Entrevista RH':'#4f8ef7',
+  'Entrevista Técnica':'#EF9F27', 'Entrevista Gestor':'#ff8cfd',
+  'Entrevista Diretor':'#D81B60', 'Entrevista Extra':'#7E57C2',
+  'Proposta':'#1D9E75', 'Admissão':'#065F46', 'Contratado':'#639922', 'Reprovado':'#E24B4A'
+};
+let etapaColors = document.documentElement.dataset.theme === 'dark' ? etapaColorsDark : etapaColorsLight;
 function rdash() {
   const vagasVisiveis = getVisibleVagas();
   const candsVisiveis = getVisibleCands();
 
   const totalVagas = vagasVisiveis.length;
-  const byStatus = { Aberta: 0, 'Em Andamento': 0, Preenchida: 0, Congelada: 0 };
+  const byStatus = { Aberta: 0, 'Em Andamento': 0, Preenchida: 0, Congelada: 0, Cancelada: 0 };
   vagasVisiveis.forEach(v => { if (byStatus.hasOwnProperty(v.status)) byStatus[v.status]++; });
   const vagasAbertas = byStatus['Aberta'];
   const vagasPreenchidas = byStatus['Preenchida'];
@@ -1169,7 +1455,7 @@ function rdash() {
   const byEtapa = {};
   ETAPAS.forEach(e => byEtapa[e] = candsVisiveis.filter(c => c.etapa === e).length);
 
-  const statusColors = { 'Aberta':'#4f8ef7', 'Em Andamento':'#EF9F27', 'Preenchida':'#639922', 'Congelada':'#7A8B9E' };
+  const statusColors = document.documentElement.dataset.theme === 'dark' ? { 'Aberta':'#79adff', 'Em Andamento':'#ffc266', 'Preenchida':'#a6dc75', 'Congelada':'#a8b6cb', 'Cancelada':'#ff817b' } : { 'Aberta':'#4f8ef7', 'Em Andamento':'#EF9F27', 'Preenchida':'#639922', 'Congelada':'#7A8B9E', 'Cancelada':'#D92D20' };
 
   const recentes = candsVisiveis.slice(-4).reverse();
 
@@ -1514,6 +1800,414 @@ function toggleJustifCard(uid) {
   if (arrow) arrow.style.transform = aberto ? 'rotate(0deg)' : 'rotate(180deg)';
 }
 
+
+// ========== ABA CONTROLE DE ATIVOS (SOMENTE VISUALIZAÇÃO) — v2 ==========
+// Substitui TODO o bloco anterior da aba de ativos: da linha
+// "// ========== ABA CONTROLE DE ATIVOS ..." (1ª ocorrência) até logo antes de
+// "// ========== ABA VAGAS ==========".
+// Se você já colou a v1, apague o bloco da v1 inteiro e cole este.
+// Não precisa mexer em CSS: os estilos novos são injetados por este próprio bloco.
+
+// ----- Estilos (injetados uma única vez) -----
+(function () {
+  if (document.getElementById('ativos-style')) return;
+  const s = document.createElement('style');
+  s.id = 'ativos-style';
+  s.textContent = `
+.at-hint{font-size:12px;color:var(--tx3);margin:-4px 0 14px;display:flex;align-items:center;gap:6px}
+.at-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:18px}
+.at-kpi{position:relative;text-align:left;background:var(--surf);border:1px solid var(--border);border-radius:16px;padding:16px 16px 14px;cursor:pointer;font-family:inherit;color:var(--tx);transition:transform .15s,box-shadow .2s,border-color .15s;overflow:hidden}
+.at-kpi:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(30,40,90,.09)}
+.at-kpi.on{border-color:var(--c);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 20%,transparent)}
+.at-kpi-top{display:flex;align-items:center;justify-content:space-between}
+.at-kpi-ico{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-size:19px;background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--c)}
+.at-kpi-pct{font-size:11px;font-weight:600;color:var(--tx3)}
+.at-kpi-val{font-size:32px;font-weight:600;letter-spacing:-.03em;line-height:1;margin-top:14px}
+.at-kpi-lbl{font-size:12.5px;color:var(--tx2);margin-top:5px;font-weight:500}
+.at-kpi-bar{height:4px;border-radius:99px;background:var(--surf2);margin-top:12px;overflow:hidden}
+.at-kpi-bar i{display:block;height:100%;border-radius:99px;background:var(--c);transition:width .4s}
+.at-kpi.total{background:linear-gradient(135deg,#4f8ef7,#7F77DD);border-color:transparent;color:#fff}
+.at-kpi.total .at-kpi-ico{background:rgba(255,255,255,.2);color:#fff}
+.at-kpi.total .at-kpi-pct,.at-kpi.total .at-kpi-lbl{color:rgba(255,255,255,.85)}
+.at-kpi.total .at-kpi-bar{background:rgba(255,255,255,.25)}
+.at-kpi.total .at-kpi-bar i{background:#fff}
+.at-grid{display:grid;gap:16px;margin-bottom:18px}
+.at-row{display:grid;grid-template-columns:minmax(80px,140px) 1fr auto;align-items:center;gap:12px;padding:6px 8px;border-radius:10px;cursor:pointer;transition:background .12s}
+.at-row:hover{background:var(--surf2)}
+.at-row.static{cursor:default}
+.at-row.static:hover{background:transparent}
+.at-lbl{font-size:13px;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.at-track{height:10px;background:var(--surf2);border-radius:99px;overflow:hidden}
+.at-fill{height:100%;border-radius:99px;transition:width .4s}
+.at-num{font-family:var(--font-mono);font-size:12px;font-weight:600;color:var(--tx);min-width:68px;text-align:right}
+.at-num small{color:var(--tx3);font-weight:400;margin-left:5px}
+.at-donut{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+.at-leg{flex:1;min-width:170px;display:flex;flex-direction:column;gap:2px}
+.at-leg-i{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;font-size:13px;cursor:pointer}
+.at-leg-i:hover{background:var(--surf2)}
+.at-leg-i b{margin-left:auto;font-family:var(--font-mono);font-size:12px}
+.at-leg-i small{color:var(--tx3);width:38px;text-align:right;font-size:11px}
+.at-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.at-search{position:relative;flex:1;min-width:260px}
+.at-search i{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--tx3);font-size:15px}
+.at-search input{padding-left:34px}
+.at-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.at-chip{display:inline-flex;align-items:center;gap:6px;background:#eef3ff;color:#2f5fc4;border-radius:99px;padding:4px 6px 4px 11px;font-size:12px;font-weight:500}
+.at-chip button{border:none;background:rgba(79,142,247,.18);color:#2f5fc4;width:18px;height:18px;border-radius:50%;cursor:pointer;display:grid;place-items:center;font-size:11px;padding:0}
+.at-chip button:hover{background:rgba(79,142,247,.35)}
+.at-pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:600;white-space:nowrap}
+.at-pill:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.at-user{display:flex;align-items:center;gap:8px}
+.at-muted{color:var(--tx3)}
+@media(max-width:1100px){.at-grid{grid-template-columns:1fr!important}}
+`;
+  document.head.appendChild(s);
+})();
+
+// ----- Estado e utilitários -----
+const ATIVOS_PALETA = ['#4f8ef7','#EF9F27','#639922','#7F77DD','#D81B60','#4BACC6','#1D9E75','#E24B4A','#7A8B9E','#ff8cfd'];
+const CAMPOS_ATIVOS = { tipo: 'Tipo', colaborador: 'Colaborador', local: 'Localização', status: 'Status' };
+let ativosCard = '';
+ativosFiltros = { tipo: [], colaborador: [], local: [], status: [] };
+ativosTemp    = { tipo: [], colaborador: [], local: [], status: [] };
+
+function normTxt(s) {
+  return String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+function ativoQtd(a) {
+  const n = parseInt(a.qtd);
+  return isNaN(n) ? 1 : n;
+}
+// Lê um campo do ativo (aceita "colab" como apelido de "colaborador")
+function ativoCampo(a, campo) {
+  const v = campo === 'colaborador' ? (a.colaborador ?? a.colab) : a[campo];
+  return String(v ?? '').trim();
+}
+function valorAtivo(a, campo) {
+  return ativoCampo(a, campo) || 'Não informado';
+}
+function ordenarAtivos(campo) {
+  if (ativosOrdenacao.campo === campo) {
+    ativosOrdenacao.direcao *= -1;
+  } else {
+    ativosOrdenacao = { campo, direcao: campo === 'id' ? -1 : 1 };
+  }
+  renderP();
+}
+function indicadorOrdenacaoAtivo(campo) {
+  if (ativosOrdenacao.campo !== campo) return '';
+  return ativosOrdenacao.direcao > 0 ? ' ▲' : ' ▼';
+}
+function somaAtivos(fn) {
+  return ativos.filter(fn).reduce((s, a) => s + ativoQtd(a), 0);
+}
+const pctAtivos = (n, t) => t ? Math.round(n / t * 100) : 0;
+
+// Cards do topo (mesma lógica do sistema de inventário)
+const ATIVO_CARDS = {
+  total:      { rot: 'Total',      ico: 'ti-packages',           cor: '#4f8ef7', fn: () => true },
+  uso:        { rot: 'Em uso',     ico: 'ti-device-laptop',      cor: '#4f8ef7', fn: a => normTxt(a.status).includes('uso') },
+  disponivel: { rot: 'Disponível', ico: 'ti-circle-check',       cor: '#639922', fn: a => { const s = normTxt(a.status); return s.includes('disponiv') && !s.includes('indispon'); } },
+  escritorio: { rot: 'Escritório', ico: 'ti-building',           cor: '#7F77DD', fn: a => normTxt(a.local).includes('escritorio') },
+  remoto:     { rot: 'Remoto',     ico: 'ti-home',               cor: '#D81B60', fn: a => normTxt(a.local).includes('remoto') },
+  estoque:    { rot: 'Estoque',    ico: 'ti-building-warehouse', cor: '#EF9F27', fn: a => normTxt(a.local).includes('estoque') || normTxt(a.status).includes('estoque') }
+};
+
+// Cor por status (a mesma no gráfico e na tabela)
+function corStatus(nome) {
+  const s = normTxt(nome);
+  if (s.includes('indispon')) return '#7F77DD';
+  if (s.includes('disponiv')) return '#639922';
+  if (s.includes('uso'))      return '#4f8ef7';
+  if (s.includes('estoque'))  return '#EF9F27';
+  if (s.includes('descart') || s.includes('baix')) return '#E24B4A';
+  if (s.includes('manut'))    return '#4BACC6';
+  return '#7A8B9E';
+}
+
+// Agrupa por campo somando Qtd. Mantém os "topN" maiores e junta o resto em "Outros (N)"
+function agruparAtivos(campo, topN = 8) {
+  const g = {};
+  ativos.forEach(a => {
+    const k = valorAtivo(a, campo);
+    g[k] = (g[k] || 0) + ativoQtd(a);
+  });
+  let e = Object.entries(g).sort((x, y) => y[1] - x[1]);
+  if (topN && e.length > topN + 1) {
+    const resto = e.slice(topN);
+    e = e.slice(0, topN);
+    e.push([`Outros (${resto.length})`, resto.reduce((s, r) => s + r[1], 0)]);
+  }
+  return Object.fromEntries(e);
+}
+
+// ----- Interações (só filtram a visualização) -----
+function irParaListaAtivos() {
+  const el = document.getElementById('at-lista');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function filtrarPorCard(chave) {
+  ativosCard = (chave === 'total' || ativosCard === chave) ? '' : chave;
+  renderP();
+  irParaListaAtivos();
+}
+function filtrarPorGrafico(campo, valor) {
+  ativosFiltros[campo] = [valor];
+  ativosTemp[campo] = [valor];
+  renderP();
+  irParaListaAtivos();
+}
+function removerFiltroAtivo(campo, valor) {
+  ativosFiltros[campo] = ativosFiltros[campo].filter(v => v !== valor);
+  ativosTemp[campo] = [...ativosFiltros[campo]];
+  renderP();
+}
+function limparTodosFiltrosAtivos() {
+  Object.keys(CAMPOS_ATIVOS).forEach(c => { ativosFiltros[c] = []; ativosTemp[c] = []; });
+  ativosBusca = '';
+  ativosCard = '';
+  renderP();
+}
+function ativoPassaFiltros(a) {
+  const busca = normTxt(ativosBusca);
+  if (busca && !(
+    normTxt(a.id).includes(busca) || normTxt(a.tipo).includes(busca) ||
+    normTxt(ativoCampo(a, 'colaborador')).includes(busca) || normTxt(a.local).includes(busca) || normTxt(a.status).includes(busca)
+  )) return false;
+  for (const c of Object.keys(CAMPOS_ATIVOS)) {
+    if (ativosFiltros[c].length && !ativosFiltros[c].includes(valorAtivo(a, c))) return false;
+  }
+  if (ativosCard && ATIVO_CARDS[ativosCard] && !ATIVO_CARDS[ativosCard].fn(a)) return false;
+  return true;
+}
+
+// ----- Tela -----
+function rativos() {
+  Object.keys(CAMPOS_ATIVOS).forEach(c => { ativosTemp[c] = [...ativosFiltros[c]]; });
+
+  // Cards
+  const totalN = somaAtivos(ATIVO_CARDS.total.fn);
+  const kpis = ['total', 'uso', 'disponivel', 'escritorio', 'remoto', 'estoque'].map(k => {
+    const c = ATIVO_CARDS[k];
+    const n = somaAtivos(c.fn);
+    const p = pctAtivos(n, totalN);
+    return `
+    <button type="button" class="at-kpi ${k === 'total' ? 'total' : ''} ${ativosCard === k ? 'on' : ''}" style="--c:${c.cor}" onclick="filtrarPorCard('${k}')" title="${k === 'total' ? 'Mostrar todos' : 'Filtrar: ' + c.rot}">
+      <div class="at-kpi-top"><span class="at-kpi-ico"><i class="ti ${c.ico}"></i></span><span class="at-kpi-pct">${k === 'total' ? ativos.length + ' registros' : p + '%'}</span></div>
+      <div class="at-kpi-val">${n}</div>
+      <div class="at-kpi-lbl">${c.rot}</div>
+      <div class="at-kpi-bar"><i style="width:${k === 'total' ? 100 : p}%"></i></div>
+    </button>`;
+  }).join('');
+
+  // Gráficos de barras (tipo, localização, empresa)
+  const barras = (titulo, icone, g, campo, cor) => {
+    const max = Math.max(...Object.values(g), 1);
+    const tot = Object.values(g).reduce((s, n) => s + n, 0);
+    const linhas = Object.entries(g).map(([k, n]) => {
+      const outros = k.startsWith('Outros (');
+      const w = Math.max(3, Math.round(n / max * 100));
+      const clique = outros ? '' : `data-v="${ec(k)}" onclick="filtrarPorGrafico('${campo}', this.dataset.v)" title="Filtrar por ${ec(k)}"`;
+      return `<div class="at-row ${outros ? 'static' : ''}" ${clique}>
+        <span class="at-lbl">${ec(k)}</span>
+        <div class="at-track"><div class="at-fill" style="width:${w}%;background:${outros ? '#94a3b8' : cor}"></div></div>
+        <span class="at-num">${n}<small>${pctAtivos(n, tot)}%</small></span>
+      </div>`;
+    }).join('');
+    return `
+    <div class="chart-card">
+      <div class="chart-title"><i class="ti ${icone}"></i> ${titulo}</div>
+      ${linhas || '<div class="empty">Sem dados</div>'}
+    </div>`;
+  };
+
+  // Gráfico de rosca (status)
+  const rosca = (titulo, icone, g, campo) => {
+    const cores = {};
+    Object.keys(g).forEach(k => cores[k] = k.startsWith('Outros (') ? '#94a3b8' : corStatus(k));
+    const tot = Object.values(g).reduce((s, n) => s + n, 0);
+    const legenda = Object.entries(g).map(([k, n]) => {
+      const outros = k.startsWith('Outros (');
+      const clique = outros ? 'style="cursor:default"' : `data-v="${ec(k)}" onclick="filtrarPorGrafico('${campo}', this.dataset.v)" title="Filtrar por ${ec(k)}"`;
+      return `<div class="at-leg-i" ${clique}><span class="legend-dot" style="background:${cores[k]}"></span><span>${ec(k)}</span><b>${n}</b><small>${pctAtivos(n, tot)}%</small></div>`;
+    }).join('');
+    return `
+    <div class="chart-card">
+      <div class="chart-title"><i class="ti ${icone}"></i> ${titulo}</div>
+      <div class="at-donut">${gerarDonut(g, cores, 'itens')}<div class="at-leg">${legenda}</div></div>
+    </div>`;
+  };
+
+  const temEmpresa = ativos.some(a => ativoCampo(a, 'empresa'));
+  const colunas = temEmpresa ? 2 : 3;
+  const graficos = `
+  <div class="at-grid" style="grid-template-columns:repeat(${colunas},minmax(0,1fr));">
+    ${barras('Por tipo de equipamento', 'ti-devices', agruparAtivos('tipo'), 'tipo', 'linear-gradient(90deg,#4f8ef7,#7F77DD)')}
+    ${rosca('Por status', 'ti-flag', agruparAtivos('status'), 'status')}
+    ${barras('Por localização', 'ti-map-pin', agruparAtivos('local'), 'local', 'linear-gradient(90deg,#7F77DD,#D81B60)')}
+    ${temEmpresa ? barras('Por empresa proprietária', 'ti-building-skyscraper', agruparAtivos('empresa'), 'empresa', 'linear-gradient(90deg,#1D9E75,#4BACC6)') : ''}
+  </div>`;
+
+  // Listagem
+  const filtrados = ativos.filter(ativoPassaFiltros);
+  if (ativosOrdenacao.campo) {
+    const { campo, direcao } = ativosOrdenacao;
+    filtrados.sort((a, b) => {
+      const valorA = campo === 'id' ? String(a.id || '') : ativoCampo(a, campo);
+      const valorB = campo === 'id' ? String(b.id || '') : ativoCampo(b, campo);
+      return valorA.localeCompare(valorB, 'pt-BR', {
+        numeric: campo === 'id',
+        sensitivity: 'base',
+      }) * direcao;
+    });
+  }
+  const chips = [];
+  if (ativosCard && ATIVO_CARDS[ativosCard]) {
+    chips.push(`<span class="at-chip">${ATIVO_CARDS[ativosCard].rot}<button type="button" onclick="ativosCard='';renderP()" title="Remover"><i class="ti ti-x"></i></button></span>`);
+  }
+  Object.keys(CAMPOS_ATIVOS).forEach(c => ativosFiltros[c].forEach(v => {
+    chips.push(`<span class="at-chip">${CAMPOS_ATIVOS[c]}: ${ec(v)}<button type="button" data-v="${ec(v)}" onclick="removerFiltroAtivo('${c}', this.dataset.v)" title="Remover"><i class="ti ti-x"></i></button></span>`);
+  }));
+  const temFiltro = chips.length > 0 || !!ativosBusca;
+
+  const linhas = filtrados.length === 0
+    ? `<tr><td colspan="6"><div class="empty"><i class="ti ti-search-off" style="font-size:22px;display:block;margin-bottom:6px"></i>Nenhum ativo encontrado com esses filtros.</div></td></tr>`
+    : filtrados.map(a => {
+        const colab = ativoCampo(a, 'colaborador');
+        const cs = corStatus(a.status);
+        return `<tr>
+        <td><span class="td-id" style="color:#4f8ef7">${ec(String(a.id))}</span></td>
+        <td class="td-texto" style="font-weight:500">${ec(String(a.tipo || ''))}</td>
+        <td style="text-align:center;font-family:'DM Mono',monospace">${ativoQtd(a)}</td>
+        <td class="td-texto">${colab
+          ? `<div class="at-user"><span class="avatar" style="width:24px;height:24px;border-radius:7px;font-size:10px;background:${avbg(colab)};color:${avtx(colab)}">${initials(colab)}</span>${ec(colab)}</div>`
+          : '<span class="at-muted">—</span>'}</td>
+        <td class="td-texto">${ec(String(a.local || '—'))}</td>
+        <td>${a.status ? `<span class="at-pill" style="background:color-mix(in srgb,${cs} 14%,transparent);color:color-mix(in srgb,${cs} 70%,#000)">${ec(String(a.status))}</span>` : '<span class="at-muted">—</span>'}</td>
+      </tr>`;
+      }).join('');
+
+  return `
+<div class="section-hdr" style="margin-bottom:.5rem">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <h2>Controle de ativos</h2><span class="cnt">${ativos.length}</span>
+  </div>
+</div>
+<div class="at-hint"><i class="ti ti-click"></i> Clique nos cards e nos gráficos para filtrar a listagem abaixo.</div>
+
+<div class="at-kpis">${kpis}</div>
+${graficos}
+
+<div class="card" id="at-lista">
+  <div class="card-title"><i class="ti ti-list"></i> Listagem completa</div>
+  <div class="at-toolbar">
+    <div class="at-search"><i class="ti ti-search"></i><input class="fi" style="width:100%;min-width:0" placeholder="Buscar por ID, tipo, colaborador, local ou status..." value="${ec(ativosBusca)}" onchange="ativosBusca=this.value;renderP()"></div>
+    ${filtroAtivosHTML('tipo', 'Equipamento')}
+    ${filtroAtivosHTML('colaborador', 'Colaborador')}
+    ${filtroAtivosHTML('local', 'Localização')}
+    ${filtroAtivosHTML('status', 'Status')}
+  </div>
+  <div class="at-chips">
+    ${chips.join('')}
+    ${temFiltro ? `<button class="btn-sec" onclick="limparTodosFiltrosAtivos()" style="padding:4px 10px;font-size:12px"><i class="ti ti-x"></i> Limpar tudo</button>` : ''}
+    <span style="font-size:12px;color:var(--tx2);margin-left:auto">Exibindo <b>${filtrados.length}</b> de ${ativos.length} registros</span>
+  </div>
+  <div class="tbl-wrap tbl-scroll">
+    <table>
+      <thead><tr>
+        <th style="width:110px;cursor:pointer" onclick="ordenarAtivos('id')" title="Ordenar por ID">ID do ativo${indicadorOrdenacaoAtivo('id')}</th><th>Tipo de equipamento</th><th style="width:60px">Qtd</th><th style="cursor:pointer" onclick="ordenarAtivos('colaborador')" title="Ordenar por colaborador">Colaborador${indicadorOrdenacaoAtivo('colaborador')}</th><th>Localização</th><th style="width:140px;cursor:pointer" onclick="ordenarAtivos('status')" title="Ordenar por status">Status${indicadorOrdenacaoAtivo('status')}</th>
+      </tr></thead>
+      <tbody>${linhas}</tbody>
+    </table>
+  </div>
+</div>`;
+}
+
+// ----- Dropdowns de filtro da listagem -----
+function filtroAtivosHTML(campo, rotulo) {
+  const contagem = {};
+  ativos.forEach(a => { const v = valorAtivo(a, campo); contagem[v] = (contagem[v] || 0) + 1; });
+  const opcoes = Object.keys(contagem).sort((x, y) => x.localeCompare(y, 'pt-BR'));
+  const qtdSel = ativosFiltros[campo].length;
+
+  return `
+  <div style="position:relative;">
+    <button type="button" id="btn-ativos-${campo}" class="btn-sec" onclick="toggleDropdownAtivos('${campo}')">
+      <i class="ti ti-filter"></i> ${rotulo} ${qtdSel > 0 ? `(${qtdSel})` : ''}
+    </button>
+    <div id="dd-ativos-${campo}" style="position:absolute; top:100%; left:0; margin-top:4px; background:var(--surf); border:0.5px solid var(--border2); border-radius:var(--r); padding:8px; min-width:270px; z-index:100; display:none; box-shadow:0 8px 24px rgba(0,0,0,0.12);">
+      <input type="text" class="fi" placeholder="Buscar..." oninput="filtrarOpcoesAtivos('${campo}', this.value)" style="min-width:0; margin-bottom:6px;">
+      <div style="max-height:240px; overflow-y:auto;">
+        ${opcoes.map(v => `
+          <label class="ativos-opt" data-v="${ec(v)}" style="display:flex; align-items:center; gap:6px; padding:4px 0; cursor:pointer; font-size:13px; text-transform:none; letter-spacing:0; font-weight:400; color:var(--tx);">
+            <input type="checkbox" value="${ec(v)}" ${ativosTemp[campo].includes(v) ? 'checked' : ''} onchange="onCheckAtivo('${campo}', this.value, this.checked)" style="width:auto;">
+            <span style="flex:1;">${ec(v)}</span>
+            <span style="font-size:11px; color:var(--tx3);">${contagem[v]}</span>
+          </label>`).join('')}
+      </div>
+      <div style="margin-top:8px; display:flex; gap:4px;">
+        <button type="button" class="btn-sec" onclick="limparFiltroAtivos('${campo}')" style="flex:1; justify-content:center;">Limpar</button>
+        <button type="button" class="btn-add" onclick="aplicarFiltroAtivos('${campo}')" style="flex:1; justify-content:center;">Aplicar</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleDropdownAtivos(campo) {
+  const dd = document.getElementById('dd-ativos-' + campo);
+  if (!dd) return;
+
+  if (dd.style.display === 'block') {
+    dd.style.display = 'none';
+    ativosTemp[campo] = [...ativosFiltros[campo]];
+    return;
+  }
+
+  // fecha os outros dropdowns abertos
+  Object.keys(CAMPOS_ATIVOS).forEach(c => {
+    if (c === campo) return;
+    const outro = document.getElementById('dd-ativos-' + c);
+    if (outro) { outro.style.display = 'none'; ativosTemp[c] = [...ativosFiltros[c]]; }
+  });
+
+  ativosTemp[campo] = [...ativosFiltros[campo]];
+  dd.style.display = 'block';
+
+  const handler = (e) => {
+    if (!dd.contains(e.target) && !e.target.closest('#btn-ativos-' + campo)) {
+      dd.style.display = 'none';
+      ativosTemp[campo] = [...ativosFiltros[campo]];
+      document.removeEventListener('click', handler);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', handler), 10);
+}
+
+function onCheckAtivo(campo, valor, marcado) {
+  const idx = ativosTemp[campo].indexOf(valor);
+  if (marcado && idx === -1) ativosTemp[campo].push(valor);
+  if (!marcado && idx > -1) ativosTemp[campo].splice(idx, 1);
+}
+
+function filtrarOpcoesAtivos(campo, texto) {
+  const t = normTxt(texto);
+  document.querySelectorAll(`#dd-ativos-${campo} .ativos-opt`).forEach(l => {
+    l.style.display = normTxt(l.dataset.v).includes(t) ? 'flex' : 'none';
+  });
+}
+
+function aplicarFiltroAtivos(campo) {
+  ativosFiltros[campo] = [...ativosTemp[campo]];
+  renderP();
+}
+
+function limparFiltroAtivos(campo) {
+  ativosFiltros[campo] = [];
+  ativosTemp[campo] = [];
+  renderP();
+}
+
+
 // ========== ABA VAGAS ==========
 function rvagas() {
   if (userProfile === 'RH') {
@@ -1742,7 +2436,7 @@ function rcandsPorVaga() {
 
   ${fsVagaList.length > 0 ? `<button class="btn-sec" onclick="limparFiltroVagaStatus()"><i class="ti ti-x"></i> Limpar filtro</button>` : ''}
 </div>
-<div class="grid-cards">${cardsHtml}</div>`;
+<div class="cand-vaga-grid">${cardsHtml}</div>`;
 }
 
 // Tabela com todos os candidatos
@@ -1955,6 +2649,8 @@ function rconsol() {
   const ea = vagasVisiveis.reduce((sum, v) => sum + v.posicoes.filter(p => p.status === 'Em Andamento').length, 0);
   const pre = vagasVisiveis.reduce((sum, v) => sum + v.posicoes.filter(p => p.status === 'Preenchida').length, 0);
   const con = vagasVisiveis.reduce((sum, v) => sum + v.posicoes.filter(p => p.status === 'Congelada').length, 0);
+  const canceladas = vagasVisiveis.filter(v => v.status === 'Cancelada').length;
+
 
   // Paginação das vagas preenchidas (já usa vagasVisiveis)
   const vagasPreenchidas = vagasVisiveis.filter(v => v.posicoes.some(p => p.status === 'Preenchida'));
@@ -1962,6 +2658,13 @@ function rconsol() {
   if (paginaVagasPreenchidas > totalPaginas) paginaVagasPreenchidas = totalPaginas || 1;
   const inicio = (paginaVagasPreenchidas - 1) * 10;
   const vagasPagina = vagasPreenchidas.slice(inicio, inicio + 10);
+
+  const candidatosContratados = candsVisiveis.filter(c => c.etapa === 'Contratado');
+  const totalPaginasContratados = Math.ceil(candidatosContratados.length / 10);
+  if (paginaCandidatosContratados > totalPaginasContratados) paginaCandidatosContratados = totalPaginasContratados || 1;
+  const inicioContratados = (paginaCandidatosContratados - 1) * 10;
+  const contratadosPagina = candidatosContratados.slice(inicioContratados, inicioContratados + 10);
+  const botoesContratados = Array.from({ length: totalPaginasContratados }, (_, i) => `<button class="${i + 1 === paginaCandidatosContratados ? 'active' : ''}" onclick="irParaPaginaCandidatosContratados(${i + 1})">${i + 1}</button>`).join('');
 
   let botoesPagina = '';
   for (let i = 1; i <= totalPaginas; i++) {
@@ -1973,8 +2676,8 @@ function rconsol() {
 <div class="grid2" style="margin-bottom:1.25rem">
   <div class="card">
     <div class="card-title">Vagas por status</div>
-    ${[['Aberta','s-aberta',ab],['Em Andamento','s-andamento',ea],['Preenchida','s-preenchida',pre],['Congelada','s-congelada',con]].map(([l,c,n]) => `<div class="stat-row"><span class="pill ${c}">${l}</span><span class="stat-num">${n}</span></div>`).join('')}
-    <div style="display:flex;justify-content:space-between;padding-top:10px;font-size:13px;font-weight:500"><span>Total</span><span style="font-family:'DM Mono',monospace">${totalPosicoes}</span></div>
+    ${[['Aberta','s-aberta',ab],['Em Andamento','s-andamento',ea],['Preenchida','s-preenchida',pre],['Congelada','s-congelada',con],['Cancelada','s-cancelada',canceladas]].map(([l,c,n]) => `<div class="stat-row"><span class="pill ${c}">${l}</span><span class="stat-num">${n}</span></div>`).join('')}
+    <div style="display:flex;justify-content:space-between;padding-top:10px;font-size:13px;font-weight:500"><span>Total de posições</span><span style="font-family:'DM Mono',monospace">${totalPosicoes}</span></div>
   </div>
   <div class="card">
     <div class="card-title">Candidatos por etapa</div>
@@ -1982,16 +2685,15 @@ function rconsol() {
     <div style="display:flex;justify-content:space-between;padding-top:10px;font-size:13px;font-weight:500"><span>Total</span><span style="font-family:'DM Mono',monospace">${candsVisiveis.length}</span></div>
   </div>
 </div>
-<div class="card" style="margin-bottom:1.25rem">
+<div class="card consolidado-list-card" style="margin-bottom:1.25rem">
   <div class="card-title">Vagas preenchidas</div>
   <div class="tbl-wrap" style="margin-top:.75rem"><table><thead><tr><th>ID</th><th>Cargo</th><th>Empresa</th><th>Local</th><th>Status</th><th>Prioridade</th></tr></thead><tbody>
-    ${vagasPagina.length === 0 ? `<tr><td colspan="6"><div class="empty">Nenhuma</div></td></tr>` :
-    vagasPagina.map(v => `<tr><td>${ec(v.id)}</td><td>${ec(v.cargo)}</td><td>${ec(v.empresa)}</td><td>${ec(v.local)}</td><td><span class="pill s-preenchida">Preenchida</span></td><td><span class="pill ${pcls(v.pri)}">${v.pri}</span></td></tr>`).join('')}
+    ${Array.from({ length: 10 }, (_, i) => { const v = vagasPagina[i]; if (!v) return `<tr class="consolidado-spacer"><td colspan="6">${i === 0 && vagasPreenchidas.length === 0 ? '<div class="empty">Nenhuma</div>' : '&nbsp;'}</td></tr>`; return `<tr><td>${ec(v.id)}</td><td>${ec(v.cargo)}</td><td>${ec(v.empresa)}</td><td>${ec(v.local)}</td><td><span class="pill s-preenchida">Preenchida</span></td><td><span class="pill ${pcls(v.pri)}">${v.pri}</span></td></tr>`; }).join('')}
   </tbody></table></div>
-  ${totalPaginas > 1 ? `<div class="pagination">${botoesPagina}</div>` : ''}
+  <div class="pagination consolidado-pagination">${botoesPagina}</div>
 </div>
-<div class="card"><div class="card-title">Candidatos contratados</div><div class="tbl-wrap" style="margin-top:.75rem"><table><thead><tr><th>ID</th><th>Candidato</th><th>Vaga</th><th>Telefone</th><th>Email</th><th>Obs</th></tr></thead><tbody>
-      ${candsVisiveis.filter(c=>c.etapa==='Contratado').length===0?`<tr><td colspan="6"><div class="empty">Nenhum</div></td></tr>`:candsVisiveis.filter(c=>c.etapa==='Contratado').map(c=>{const v=vagasVisiveis.find(vv=>vv.id===c.vid);return`<tr><td>${ec(c.id)}</td>
+<div class="card consolidado-list-card"><div class="card-title">Candidatos contratados</div><div class="tbl-wrap" style="margin-top:.75rem"><table><thead><tr><th>ID</th><th>Candidato</th><th>Vaga</th><th>Telefone</th><th>Email</th><th>Obs</th></tr></thead><tbody>
+      ${Array.from({ length: 10 }, (_, i) => { const c = contratadosPagina[i]; if (!c) return `<tr class="consolidado-spacer"><td colspan="6">${i === 0 && candidatosContratados.length === 0 ? '<div class="empty">Nenhum</div>' : '&nbsp;'}</td></tr>`; const v = vagasVisiveis.find(vv => vv.id === c.vid); return `<tr><td>${ec(c.id)}</td>
         <td><div style="display:flex;align-items:center;gap:7px"><div class="avatar" style="width:24px;height:24px;border-radius:6px;font-size:10px;background:${avbg(c.nome)};color:${avtx(c.nome)}">${initials(c.nome)}</div>${ec(c.nome)}</div></td><td>${ec(c.vid)}${v?` – ${ec(v.cargo)}`:''}</td><td style="white-space: nowrap;">
         <span style="user-select: text; cursor: text;">${formatTel(c.tel)}</span>
         <a href="${whatsappLink(c.tel)}" target="_blank" style="color: #25D366; text-decoration: none; margin-left: 6px; vertical-align: middle;" title="Abrir WhatsApp">
@@ -2000,8 +2702,9 @@ function rconsol() {
     </td>
     <td>${ec(c.email)}</td>
     <td>${ec(c.obs)}</td>
-  </tr>`;}).join('')}
-</tbody></table></div></div>`;
+  </tr>`; }).join('')}
+</tbody></table></div>
+<div class="pagination consolidado-pagination">${botoesContratados}</div></div>`;
 }
 
 function switchSolicSubTab(sub) {
@@ -2279,7 +2982,9 @@ function recalcStatusVaga(vaga) {
     novoStatus = 'Aberta';
   }
   // Preserva Congelada se ainda não tiver contratado (agora funciona de verdade)
-  if (vaga.status === 'Congelada' && contratados === 0) {
+  if (vaga.status === 'Cancelada') {
+    novoStatus = 'Cancelada';
+  } else if (vaga.status === 'Congelada' && contratados === 0) {
     novoStatus = 'Congelada';
   }
   vaga.statusHistorico = registrarStatusVaga(vaga, novoStatus);
@@ -2314,6 +3019,11 @@ function vagaEsteveEmAndamentoNoPeriodo(vaga, dataIni, dataFim) {
 
 function irParaPaginaVagasPreenchidas(pag) {
   paginaVagasPreenchidas = pag;
+  renderP();
+}
+
+function irParaPaginaCandidatosContratados(pag) {
+  paginaCandidatosContratados = pag;
   renderP();
 }
 
@@ -2610,7 +3320,7 @@ function mCand() {
         <div class="fg"><label>Celular</label><input id="ci-tl" placeholder="(11) 99999-9999" value="${ec(c.tel||'')}" oninput="limparErroContato()" ${disabledAttr}></div>
         <div class="fg"><label>Email</label><input id="ci-em" value="${ec(c.email||'')}" oninput="limparErroContato()" ${disabledAttr}></div>
         <div class="fg"><label>LinkedIn</label><input id="ci-linkedin" placeholder="linkedin.com/in/seu-perfil" value="${ec(c.linkedin||'')}" oninput="limparErroContato()" ${disabledAttr}></div>
-        <div class="fg full"><label>Observações</label><textarea id="ci-ob" ${disabledAttr}>${ec(c.obs||'')}</textarea></div>
+        <div class="fg full"><label>Observações</label><textarea id="ci-ob" ${disabledAttr}>${ec(c.obs||'')}</textarea>${c.obsAutor ? `<small style="color:var(--tx3);">Comentário registrado por ${ec(c.obsAutor)}${c.obsData ? ` em ${new Date(c.obsData).toLocaleString('pt-BR')}` : ''}</small>` : ''}</div>
         <div class="fg full"><label>Etapa</label><select id="ci-et" onchange="toggleJustificativa()" ${disabledAttr}>${ETAPAS.map(e=>`<option ${(c.etapa||'Triagem')===e?'selected':''}>${e}</option>`).join('')}</select></div>
        <div class="fg full" id="fg-justificativa" style="display:${showJustificativa ? 'flex' : 'none'}">
         <label>Motivo da reprovação</label>
@@ -2639,9 +3349,9 @@ function mCand() {
           <label>Histórico de Etapas</label>
           <div style="max-height:150px;overflow-y:auto;border:0.5px solid var(--border2);border-radius:var(--r);padding:8px;">
             <table style="width:100%;font-size:12px;">
-              <thead><tr><th style="text-align:left">Data</th><th style="text-align:left">Etapa</th></tr></thead>
+              <thead><tr><th style="text-align:left">Data</th><th style="text-align:left">Etapa</th><th style="text-align:left">Responsável</th></tr></thead>
               <tbody>
-                ${c.historico.map(h => `<tr><td>${new Date(h.data).toLocaleDateString('pt-BR')}</td><td>${h.etapa}</td></tr>`).join('')}
+                ${c.historico.map(h => `<tr><td>${new Date(h.data).toLocaleDateString('pt-BR')}</td><td>${ec(h.etapa)}</td><td>${ec(h.autor || 'Não registrado')}</td></tr>`).join('')}
               </tbody>
             </table>
           </div>
@@ -2782,7 +3492,7 @@ async function avancar(id) {
     }
     c.etapa = newEtapa;
     c.historico = c.historico || [];
-    c.historico.push({ etapa: newEtapa, data: new Date().toISOString() });
+    c.historico.push({ etapa: newEtapa, data: new Date().toISOString(), autor: getActorName() });
     await saveCandToFirestore(c);
     const vaga = vagas.find(v => v.id === c.vid);
     if (vaga) {
@@ -2843,7 +3553,7 @@ async function svV(ie) {
   }
 
   let statusGeral = document.getElementById('fi-st')?.value;
-  if (statusGeral !== 'Congelada' || contratadosDaVaga > 0) {
+  if (statusGeral !== 'Cancelada' && (statusGeral !== 'Congelada' || contratadosDaVaga > 0)) {
     statusGeral = statusCalculado;
   }
 
@@ -2951,6 +3661,9 @@ async function svC(ie) {
   const nome = document.getElementById('ci-nm').value.trim();
   const email = document.getElementById('ci-em').value;
   const obs = document.getElementById('ci-ob').value;
+  const obsFoiAlterada = !ie ? Boolean(obs.trim()) : obs !== (oldC?.obs || '');
+  const obsData = obsFoiAlterada && obs.trim() ? new Date().toISOString() : (obs ? oldC?.obsData || null : null);
+  const obsAutor = obsFoiAlterada && obs.trim() ? getActorName() : (obs ? oldC?.obsAutor || null : null);
   const linkedin = document.getElementById('ci-linkedin')?.value.trim() || '';
 
   if (!telLimpo && !email.trim() && !linkedin) {
@@ -2992,6 +3705,8 @@ async function svC(ie) {
     email,
     linkedin,
     obs,
+    obsAutor,
+    obsData,
     etapa,
     posicao: etapa === 'Contratado' ? posicao : null,
     justificativa: justificativaSel,
@@ -3010,10 +3725,10 @@ async function svC(ie) {
     if (ie) {
       if (oldC.etapa !== etapa) {
         oldC.historico = oldC.historico || [];
-        oldC.historico.push({ etapa: etapa, data: new Date().toISOString() });
+        oldC.historico.push({ etapa: etapa, data: new Date().toISOString(), autor: getActorName() });
       }
       } else {
-        o.historico = [{ etapa: etapa, data: new Date().toISOString() }];
+        o.historico = [{ etapa: etapa, data: new Date().toISOString(), autor: getActorName() }];
     }
 
     o.historico = ie ? oldC.historico : o.historico;
@@ -3397,6 +4112,15 @@ async function initApp() {
   } catch (e){ 
     loadFromLocalStorage(); 
   }
+  try {
+    const { data: ativosData, error: ativosError } = await window.assetsDb
+      .from('ativos').select('*').order('id');
+    if (ativosError) throw ativosError;
+    ativos = ativosData || [];
+    } catch (e) { 
+        ativos = [];
+        console.error('Falha ao carregar ativos do Supabase', e);
+    }
   const app = document.getElementById('app');
   const userName = USERS.find(u => u.email === currentUser.email)?.name || 'Usuário';
   
@@ -3409,9 +4133,65 @@ async function initApp() {
           <button class="nav-btn" onclick="nav('vagas')"><i class="ti ti-briefcase"></i>Vagas</button>
           <button class="nav-btn" onclick="nav('candidatos')"><i class="ti ti-user-check"></i>Candidatos</button>
           <button class="nav-btn" onclick="nav('consolidado')"><i class="ti ti-chart-bar"></i>Consolidado</button>
+          <span class="nav-sep">|</span>
+          <button class="nav-btn" onclick="nav('ativos')"><i class="ti ti-device-laptop"></i>Controle de ativos</button>
         </div>
         <div style="display:flex; align-items:center; gap:14px; margin-left:auto;">
-          <span style="color:#e5e7eb; font-size:13px; font-weight:500; margin:0px 6px 0px 0px;"><i class="ti ti-user-hexagon" style="color: #a8e89b; font-size:16px;"></i> ${userName}</span>
+          <label class="theme-switch" title="Alternar tema"
+              ><input
+                type="checkbox"
+                class="theme-switch__checkbox"
+                id="themeSw" ${document.documentElement.dataset.theme === 'dark' ? 'checked' : ''} />
+              <div class="theme-switch__container">
+                <div class="theme-switch__clouds"></div>
+                <div class="theme-switch__stars-container">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 144 55"
+                    fill="none"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      clip-rule="evenodd"
+                      d="M135.831 3.00688C135.055 3.85027 134.111 4.29946 133 4.35447C134.111 4.40947 135.055 4.85867 135.831 5.71123C136.607 
+                      6.55462 136.996 7.56303 136.996 8.72727C136.996 7.95722 137.172 7.25134 137.525 6.59129C137.886 5.93124 138.372 5.39954 
+                      138.98 5.00535C139.598 4.60199 140.268 4.39114 141 4.35447C139.88 4.2903 138.936 3.85027 138.16 3.00688C137.384 2.16348 
+                      136.996 1.16425 136.996 0C136.996 1.16425 136.607 2.16348 135.831 3.00688ZM31 23.3545C32.1114 23.2995 33.0551 22.8503 
+                      33.8313 22.0069C34.6075 21.1635 34.9956 20.1642 34.9956 19C34.9956 20.1642 35.3837 21.1635 36.1599 22.0069C36.9361 22.8503 
+                      37.8798 23.2903 39 23.3545C38.2679 23.3911 37.5976 23.602 36.9802 24.0053C36.3716 24.3995 35.8864 24.9312 35.5248 25.5913C35.172 
+                      26.2513 34.9956 26.9572 34.9956 27.7273C34.9956 26.563 34.6075 25.5546 33.8313 24.7112C33.0551 23.8587 32.1114 23.4095 31 23.3545ZM0 
+                      36.3545C1.11136 36.2995 2.05513 35.8503 2.83131 35.0069C3.6075 34.1635 3.99559 33.1642 3.99559 32C3.99559 33.1642 4.38368 34.1635 
+                      5.15987 35.0069C5.93605 35.8503 6.87982 36.2903 8 36.3545C7.26792 36.3911 6.59757 36.602 5.98015 37.0053C5.37155 37.3995 
+                      4.88644 37.9312 4.52481 38.5913C4.172 39.2513 3.99559 39.9572 3.99559 40.7273C3.99559 39.563 3.6075 38.5546 2.83131 37.7112C2.05513 
+                      36.8587 1.11136 36.4095 0 36.3545ZM56.8313 24.0069C56.0551 24.8503 55.1114 25.2995 54 25.3545C55.1114 25.4095 56.0551 25.8587 
+                      56.8313 26.7112C57.6075 27.5546 57.9956 28.563 57.9956 29.7273C57.9956 28.9572 58.172 28.2513 58.5248 27.5913C58.8864 26.9312 
+                      59.3716 26.3995 59.9802 26.0053C60.5976 25.602 61.2679 25.3911 62 25.3545C60.8798 25.2903 59.9361 24.8503 59.1599 24.0069C58.3837 
+                      23.1635 57.9956 22.1642 57.9956 21C57.9956 22.1642 57.6075 23.1635 56.8313 24.0069ZM81 25.3545C82.1114 25.2995 83.0551 24.8503 
+                      83.8313 24.0069C84.6075 23.1635 84.9956 22.1642 84.9956 21C84.9956 22.1642 85.3837 23.1635 86.1599 24.0069C86.9361 24.8503 
+                      87.8798 25.2903 89 25.3545C88.2679 25.3911 87.5976 25.602 86.9802 26.0053C86.3716 26.3995 85.8864 26.9312 85.5248 27.5913C85.172 
+                      28.2513 84.9956 28.9572 84.9956 29.7273C84.9956 28.563 84.6075 27.5546 83.8313 26.7112C83.0551 25.8587 82.1114 25.4095 81 
+                      25.3545ZM136 36.3545C137.111 36.2995 138.055 35.8503 138.831 35.0069C139.607 34.1635 139.996 33.1642 139.996 32C139.996 33.1642 
+                      140.384 34.1635 141.16 35.0069C141.936 35.8503 142.88 36.2903 144 36.3545C143.268 36.3911 142.598 36.602 141.98 37.0053C141.372 
+                      37.3995 140.886 37.9312 140.525 38.5913C140.172 39.2513 139.996 39.9572 139.996 40.7273C139.996 39.563 139.607 38.5546 138.831 
+                      37.7112C138.055 36.8587 137.111 36.4095 136 36.3545ZM101.831 49.0069C101.055 49.8503 100.111 50.2995 99 50.3545C100.111 50.4095 
+                      101.055 50.8587 101.831 51.7112C102.607 52.5546 102.996 53.563 102.996 54.7273C102.996 53.9572 103.172 53.2513 103.525 
+                      52.5913C103.886 51.9312 104.372 51.3995 104.98 51.0053C105.598 50.602 106.268 50.3911 107 50.3545C105.88 50.2903 104.936 
+                      49.8503 104.16 49.0069C103.384 48.1635 102.996 47.1642 102.996 46C102.996 47.1642 102.607 48.1635 101.831 49.0069Z"
+                      fill="currentColor"
+                    ></path>
+                  </svg>
+                </div>
+                <div class="theme-switch__circle-container">
+                  <div class="theme-switch__sun-moon-container">
+                    <div class="theme-switch__moon">
+                      <div class="theme-switch__spot"></div>
+                      <div class="theme-switch__spot"></div>
+                      <div class="theme-switch__spot"></div>
+                    </div>
+                  </div>
+                </div></div></label
+
+          <span class="topbar-user" style="font-size:13px; font-weight:500; margin:0px 6px 0px 0px;"><i class="ti ti-user-hexagon" style="color: #a8e89b; font-size:16px;"></i> <span class="topbar-user-name" style="color:#fff !important; -webkit-text-fill-color:#fff !important;">${userName}</span></span>
           <button class="user-btn" onclick="openChangePasswordModal()" style="margin:0px 6px 0px 0px;"><i style="color:#cdcf7c" class="ti ti-key"></i> Alterar senha</button>
           <button class="user-btn" onclick="logout()" style="margin:0px 6px 0px -15px;"><i style="color:red" class="ti ti-logout"></i> Sair</button>
         </div>
@@ -3438,5 +4218,14 @@ auth.onAuthStateChanged((user) => {
 
 
 </script>
-</body>
+<script>
+  document.addEventListener('change', (event) => {
+    if (event.target?.id !== 'themeSw') return;
+    const theme = event.target.checked ? 'dark' : 'light';
+    document.documentElement.dataset.theme = theme;
+    etapaColors = theme === 'dark' ? etapaColorsDark : etapaColorsLight;
+    try { localStorage.setItem('rh-theme', theme); } catch (e) {}
+    if (currentUser) render();
+  });
+</script></body>
 </html>

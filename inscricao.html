@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trabalhe com a gente — Inscrição</title>
+ 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,500&family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+ 
+<!-- Firebase SDK (compat) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="runtime-config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+ 
+<style>
+:root{
+  --navy-deep:#11121d;
+  --navy:#1a1a2e;
+  --navy-soft:#23264a;
+  --indigo:#4f8ef7;
+  --violet:#a78bfa;
+  --paper:#fdfcfb;
+  --paper-soft:#f4f2ee;
+  --ink:#1a1d28;
+  --mist:#5f6577;
+  --mist-soft:#9a9eac;
+  --line:#e6e3dc;
+  --success:#1d9e75;
+  --danger:#d6493f;
+  --r:14px;
+  --r-lg:24px;
+  --font-display:'Fraunces', serif;
+  --font-sans:'DM Sans', sans-serif;
+  --font-mono:'DM Mono', monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{font-family:var(--font-sans);color:var(--ink);background:var(--paper);min-height:100vh;}
+button{font-family:inherit;}
+ 
+.shell{
+  min-height:100vh;
+  display:grid;
+  grid-template-columns: 1fr 1.15fr;
+}
+ 
+/* ===================== PAINEL ESQUERDO (marca) ===================== */
+.panel{
+  position:relative;
+  background:linear-gradient(165deg,var(--navy-deep) 0%, var(--navy) 55%, var(--navy-soft) 100%);
+  color:#fff;
+  padding:3rem 3.2rem;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  overflow:hidden;
+}
+.glow{
+  position:absolute; border-radius:50%; filter:blur(70px); opacity:.55; pointer-events:none;
+}
+.glow.g1{ width:380px; height:380px; background:var(--indigo); top:-120px; left:-100px; animation:drift1 24s ease-in-out infinite; }
+.glow.g2{ width:320px; height:320px; background:var(--violet); bottom:-100px; right:-80px; animation:drift2 28s ease-in-out infinite; }
+@keyframes drift1{ 0%,100%{transform:translate(0,0)} 50%{transform:translate(40px,30px)} }
+@keyframes drift2{ 0%,100%{transform:translate(0,0)} 50%{transform:translate(-30px,-40px)} }
+ 
+.brand-row{ display:flex; align-items:center; gap:12px; position:relative; z-index:1; }
+.brand-mark{ width:38px; height:38px; border-radius:10px; background:var(--indigo); display:flex; align-items:center; justify-content:center; font-size:18px; }
+.brand-name{ font-size:14px; font-weight:600; letter-spacing:-0.01em; }
+.brand-sub{ font-size:11px; color:#9aa0b5; margin-top:1px; }
+ 
+.hero{ position:relative; z-index:1; margin-top:2.5rem; }
+.hero-eyebrow{
+  font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--violet);
+  font-weight:600; margin-bottom:14px; opacity:0; animation:rise .6s .1s ease forwards;
+}
+.hero h1{
+  font-family:var(--font-display); font-weight:500; font-style:italic;
+  font-size:clamp(32px,4vw,46px); line-height:1.12; letter-spacing:-0.01em;
+  max-width:480px; opacity:0; animation:rise .7s .25s ease forwards;
+}
+.hero p{
+  font-size:14.5px; color:#c2c6da; max-width:420px; margin-top:18px; line-height:1.6;
+  opacity:0; animation:rise .7s .4s ease forwards;
+}
+@keyframes rise{ from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)} }
+ 
+.pipeline{ position:relative; z-index:1; margin-top:2.6rem; }
+.pipeline-label{ font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:#7f86a3; margin-bottom:16px; font-weight:600; }
+.p-step{
+  display:flex; align-items:center; gap:12px; padding:10px 0; opacity:0; animation:rise .5s ease forwards;
+}
+.p-step:nth-child(2){animation-delay:.5s}
+.p-step:nth-child(3){animation-delay:.6s}
+.p-step:nth-child(4){animation-delay:.7s}
+.p-step:nth-child(5){animation-delay:.8s}
+.p-dot{
+  width:10px; height:10px; border-radius:50%; background:#3c3f5c; flex-shrink:0;
+  border:2px solid #3c3f5c; transition:all .4s ease;
+}
+.p-line{ width:1px; height:22px; background:#33365296; margin-left:4.5px; }
+.p-step span.lbl{ font-size:13.5px; color:#aeb2c7; font-weight:500; transition:color .4s ease; }
+.p-step.active .p-dot{ background:var(--indigo); border-color:var(--indigo); box-shadow:0 0 0 4px rgba(79,142,247,.18); }
+.p-step.active span.lbl{ color:#fff; }
+.p-step.current .p-dot{ animation:pulse 1.6s ease-in-out infinite; }
+@keyframes pulse{ 0%,100%{box-shadow:0 0 0 4px rgba(79,142,247,.18)} 50%{box-shadow:0 0 0 8px rgba(79,142,247,.1)} }
+ 
+.panel-footer{ position:relative; z-index:1; font-size:11.5px; color:#7f86a3; line-height:1.6; }
+ 
+/* ===================== PAINEL DIREITO (formulário) ===================== */
+.form-side{ display:flex; align-items:center; justify-content:center; padding:3rem 2rem; }
+.card{ width:100%; max-width:460px; }
+ 
+.progress{ display:flex; gap:6px; margin-bottom:28px; }
+.progress span{ flex:1; height:3px; border-radius:99px; background:var(--line); overflow:hidden; }
+.progress span i{ display:block; height:100%; width:0%; background:var(--indigo); transition:width .5s ease; }
+ 
+.step{ display:none; }
+.step.active{ display:block; animation:stepIn .4s ease; }
+@keyframes stepIn{ from{opacity:0; transform:translateX(14px)} to{opacity:1; transform:translateX(0)} }
+ 
+.step-eyebrow{ font-size:11px; color:var(--mist-soft); text-transform:uppercase; letter-spacing:.1em; font-weight:600; margin-bottom:8px; }
+.step h2{ font-size:23px; font-weight:600; letter-spacing:-0.015em; margin-bottom:6px; }
+.step > p.hint{ font-size:13.5px; color:var(--mist); margin-bottom:26px; }
+ 
+.field{ margin-bottom:18px; }
+.field label{ display:block; font-size:12px; font-weight:600; color:var(--mist); margin-bottom:6px; }
+.field label .opt{ font-weight:400; color:var(--mist-soft); }
+.field input, .field textarea{
+  width:100%; padding:12px 14px; border:1.5px solid var(--line); border-radius:var(--r);
+  font-size:14.5px; font-family:inherit; background:#fff; color:var(--ink); transition:border-color .15s, box-shadow .15s;
+}
+.field textarea{ resize:vertical; min-height:80px; }
+.field input:focus, .field textarea:focus{ outline:none; border-color:var(--indigo); box-shadow:0 0 0 3px rgba(79,142,247,.12); }
+.field.error input, .field.error textarea{ border-color:var(--danger); }
+.err-msg{ font-size:12px; color:var(--danger); margin-top:5px; display:none; }
+.field.error .err-msg{ display:block; }
+.row2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+ 
+/* upload de currículo */
+.drop{
+  border:1.5px dashed var(--line); border-radius:var(--r); padding:22px; text-align:center;
+  cursor:pointer; transition:all .15s; background:var(--paper-soft);
+}
+.drop:hover, .drop.drag{ border-color:var(--indigo); background:#eef4ff; }
+.drop i{ font-size:24px; color:var(--indigo); }
+.drop p{ font-size:13px; color:var(--mist); margin-top:8px; }
+.drop p strong{ color:var(--ink); }
+.file-chip{
+  display:none; align-items:center; gap:10px; padding:10px 14px; border:1.5px solid var(--line);
+  border-radius:var(--r); background:#fff; margin-top:10px;
+}
+.file-chip.show{ display:flex; }
+.file-chip i.ti-file-type-pdf{ font-size:20px; color:var(--indigo); }
+.file-chip .fname{ flex:1; font-size:13px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.file-chip .fsize{ font-size:11.5px; color:var(--mist-soft); }
+.file-chip button{ background:none; border:none; cursor:pointer; color:var(--mist-soft); font-size:16px; }
+.bar-wrap{ height:5px; background:var(--line); border-radius:99px; margin-top:8px; overflow:hidden; display:none; }
+.bar-wrap.show{ display:block; }
+.bar-fill{ height:100%; width:0%; background:var(--indigo); transition:width .2s; }
+ 
+.consent{ display:flex; gap:10px; align-items:flex-start; margin-top:6px; margin-bottom:6px; }
+.consent input{ margin-top:3px; width:16px; height:16px; accent-color:var(--indigo); cursor:pointer; flex-shrink:0; }
+.consent label{ font-size:12.5px; color:var(--mist); line-height:1.5; cursor:pointer; }
+ 
+.actions{ display:flex; gap:10px; margin-top:8px; }
+.btn{
+  font-family:inherit; font-size:14px; font-weight:600; border-radius:var(--r); padding:13px 22px;
+  cursor:pointer; border:none; transition:all .15s; display:flex; align-items:center; justify-content:center; gap:8px;
+}
+.btn-primary{ background:var(--navy); color:#fff; flex:1; }
+.btn-primary:hover{ background:#272848; }
+.btn-primary:disabled{ opacity:.55; cursor:not-allowed; }
+.btn-ghost{ background:transparent; color:var(--mist); border:1.5px solid var(--line); }
+.btn-ghost:hover{ background:var(--paper-soft); }
+ 
+.spinner{ width:15px; height:15px; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; }
+@keyframes spin{ to{transform:rotate(360deg)} }
+ 
+/* honeypot */
+.hp{ position:absolute; opacity:0; height:0; width:0; pointer-events:none; }
+ 
+/* sucesso */
+.success{ text-align:center; padding-top:6px; }
+.check-wrap{ width:72px; height:72px; margin:0 auto 22px; }
+.check-wrap svg{ width:100%; height:100%; }
+.check-circle{ stroke:var(--success); stroke-width:3; fill:none; stroke-dasharray:166; stroke-dashoffset:166; animation:circle .5s ease forwards; }
+.check-mark{ stroke:var(--success); stroke-width:3; fill:none; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:48; stroke-dashoffset:48; animation:mark .35s .5s ease forwards; }
+@keyframes circle{ to{stroke-dashoffset:0} }
+@keyframes mark{ to{stroke-dashoffset:0} }
+.success h2{ font-size:23px; font-weight:600; margin-bottom:10px; }
+.success p{ font-size:14px; color:var(--mist); line-height:1.6; max-width:380px; margin:0 auto; }
+.success .small{ font-size:12px; color:var(--mist-soft); margin-top:18px; }
+ 
+.toast{
+  position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--navy); color:#fff;
+  padding:12px 20px; border-radius:12px; font-size:13.5px; font-weight:500; opacity:0; transition:opacity .3s;
+  z-index:999; pointer-events:none;
+}
+.toast.show{ opacity:1; }
+ 
+@media (prefers-reduced-motion: reduce){
+  *{ animation-duration:.001s !important; animation-iteration-count:1 !important; transition-duration:.001s !important; }
+  .glow{ animation:none; }
+}
+ 
+@media (max-width: 980px){
+  .shell{ grid-template-columns:1fr; }
+  .panel{ padding:2rem 1.6rem 1.6rem; }
+  .hero{ margin-top:1.4rem; }
+  .hero p{ display:none; }
+  .pipeline{ display:flex; gap:0; margin-top:1.6rem; overflow-x:auto; }
+  .pipeline-label{ display:none; }
+  .p-step{ flex-direction:column; gap:6px; padding:0 14px 0 0; animation:none !important; opacity:1 !important; }
+  .p-line{ display:none; }
+  .p-step span.lbl{ font-size:11px; white-space:nowrap; }
+  .panel-footer{ display:none; }
+  .form-side{ padding:1.8rem 1.4rem 3rem; }
+}
+</style>
+</head>
+<body>
+ 
+<div class="shell">
+  <!-- ===================== PAINEL DE MARCA ===================== -->
+  <div class="panel">
+    <div class="glow g1"></div>
+    <div class="glow g2"></div>
+ 
+    <div>
+      <div class="brand-row">
+        <div class="brand-mark"><i class="ti ti-users-group"></i></div>
+        <div>
+          <div class="brand-name">Recrutamento &amp; Seleção</div>
+          <div class="brand-sub">Santorini &amp; Netz</div>
+        </div>
+      </div>
+ 
+      <div class="hero">
+        <div class="hero-eyebrow">Inscrição de candidatos</div>
+        <h1>Sua próxima etapa começa aqui.</h1>
+        <p>Leva menos de 3 minutos. Preencha seus dados e seu currículo já entra direto na nossa triagem — nossa equipe entra em contato em seguida.</p>
+      </div>
+    </div>
+ 
+    <div class="pipeline" id="pipeline">
+      <div class="pipeline-label">O que acontece depois</div>
+      <div class="p-step" data-step="0"><span class="p-dot"></span><span class="lbl">Triagem</span></div>
+      <div class="p-line"></div>
+      <div class="p-step" data-step="1"><span class="p-dot"></span><span class="lbl">Entrevistas</span></div>
+      <div class="p-line"></div>
+      <div class="p-step" data-step="2"><span class="p-dot"></span><span class="lbl">Proposta</span></div>
+      <div class="p-line"></div>
+      <div class="p-step" data-step="3"><span class="p-dot"></span><span class="lbl">Contratação</span></div>
+    </div>
+ 
+    <div class="panel-footer">
+      Seus dados são usados exclusivamente para fins de recrutamento e seleção, em conformidade com a LGPD.
+    </div>
+  </div>
+ 
+  <!-- ===================== FORMULÁRIO ===================== -->
+  <div class="form-side">
+    <div class="card">
+ 
+      <div class="progress" id="progressBar">
+        <span><i id="prog1"></i></span>
+        <span><i id="prog2"></i></span>
+      </div>
+ 
+      <form id="form-inscricao" novalidate>
+        <!-- honeypot anti-spam -->
+        <input type="text" name="website" id="hp" class="hp" tabindex="-1" autocomplete="off">
+ 
+        <!-- STEP 1 -->
+        <div class="step active" data-step="1">
+          <div class="step-eyebrow">Etapa 1 de 2</div>
+          <h2>Vamos te conhecer</h2>
+          <p class="hint">Informe seus dados de contato.</p>
+ 
+          <div class="field" id="f-nome">
+            <label>Nome completo</label>
+            <input type="text" id="nome" placeholder="Seu nome completo" autocomplete="name">
+            <div class="err-msg">Informe seu nome completo.</div>
+          </div>
+ 
+          <div class="row2">
+            <div class="field" id="f-email">
+              <label>Email</label>
+              <input type="email" id="email" placeholder="voce@email.com" autocomplete="email">
+              <div class="err-msg">Informe um email válido.</div>
+            </div>
+            <div class="field" id="f-tel">
+              <label>WhatsApp</label>
+              <input type="tel" id="tel" placeholder="(11) 99999-9999" autocomplete="tel">
+              <div class="err-msg">Informe um telefone válido.</div>
+            </div>
+          </div>
+ 
+          <div class="field">
+            <label>Cidade / Estado <span class="opt">(opcional)</span></label>
+            <input type="text" id="cidade" placeholder="Ex: São Paulo, SP">
+          </div>
+ 
+          <div class="actions">
+            <button type="button" class="btn btn-primary" id="toStep2" style="width:100%">Continuar <i class="ti ti-arrow-right"></i></button>
+          </div>
+        </div>
+ 
+        <!-- STEP 2 -->
+        <div class="step" data-step="2">
+          <div class="step-eyebrow">Etapa 2 de 2</div>
+          <h2>Perfil &amp; currículo</h2>
+          <p class="hint">Conte um pouco sobre o que você procura.</p>
+ 
+          <div class="field">
+            <label>Área ou cargo de interesse <span class="opt">(opcional)</span></label>
+            <input type="text" id="cargo" placeholder="Ex: Engenharia, Comercial, Operações...">
+          </div>
+ 
+          <div class="field">
+            <label>LinkedIn <span class="opt">(opcional)</span></label>
+            <input type="url" id="linkedin" placeholder="linkedin.com/in/seu-perfil">
+          </div>
+ 
+          <div class="field" id="f-curriculo">
+            <label>Currículo (PDF, até 5MB)</label>
+            <div class="drop" id="dropZone">
+              <i class="ti ti-file-upload"></i>
+              <p><strong>Clique para enviar</strong> ou arraste o arquivo aqui</p>
+            </div>
+            <input type="file" id="fileInput" accept="application/pdf" style="display:none">
+            <div class="file-chip" id="fileChip">
+              <i class="ti ti-file-type-pdf"></i>
+              <span class="fname" id="fname"></span>
+              <span class="fsize" id="fsize"></span>
+              <button type="button" id="removeFile"><i class="ti ti-x"></i></button>
+            </div>
+            <div class="bar-wrap" id="barWrap"><div class="bar-fill" id="barFill"></div></div>
+            <div class="err-msg">Envie seu currículo em PDF (até 5MB).</div>
+          </div>
+ 
+          <div class="field">
+            <label>Mensagem <span class="opt">(opcional)</span></label>
+            <textarea id="mensagem" placeholder="Quer contar algo mais sobre você ou sua experiência?"></textarea>
+          </div>
+ 
+          <div class="field" id="f-lgpd">
+            <div class="consent">
+              <input type="checkbox" id="lgpd">
+              <label for="lgpd">Autorizo o uso dos meus dados pessoais para fins deste processo de recrutamento e seleção, conforme a LGPD.</label>
+            </div>
+            <div class="err-msg">É necessário aceitar para enviar a inscrição.</div>
+          </div>
+ 
+          <div class="actions">
+            <button type="button" class="btn btn-ghost" id="toStep1"><i class="ti ti-arrow-left"></i></button>
+            <button type="submit" class="btn btn-primary" id="submitBtn">Enviar inscrição</button>
+          </div>
+        </div>
+      </form>
+ 
+      <!-- SUCESSO -->
+      <div class="step" data-step="3">
+        <div class="success">
+          <div class="check-wrap">
+            <svg viewBox="0 0 52 52">
+              <circle class="check-circle" cx="26" cy="26" r="23"/>
+              <path class="check-mark" d="M14 27l7 7 17-17"/>
+            </svg>
+          </div>
+          <h2>Inscrição enviada!</h2>
+          <p>Recebemos seus dados e seu currículo. Nossa equipe vai analisar seu perfil e, havendo compatibilidade com uma vaga, entraremos em contato pelo telefone ou email informado.</p>
+          <div class="small">Você já está na etapa de Triagem do nosso processo.</div>
+        </div>
+      </div>
+ 
+    </div>
+  </div>
+</div>
+ 
+<div class="toast" id="toast"></div>
+ 
+<script>
+/* ======================================================================
+   CONFIGURAÇÃO — AJUSTE ANTES DE PUBLICAR
+   ====================================================================== */
+const firebaseConfig = window.APP_CONFIG?.firebase;
+if (!firebaseConfig) throw new Error("Configuração Firebase ausente. Execute node generate-config.mjs.");
+ 
+// 1) Crie uma vaga no seu painel de RH chamada "Banco de Talentos / Cadastro Geral"
+//    (Vagas > Nova Vaga). Copie o ID gerado (ex: "V015") e cole abaixo.
+//    Toda inscrição enviada por este site será vinculada a essa vaga,
+//    para que apareça normalmente no seu painel de RH.
+const VAGA_PADRAO_ID = "V009"; // <-- IMPORTANTE: troque isso
+const TAMANHO_MAX_MB = 5;
+ 
+/* ====================================================================== */
+ 
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const storage = firebase.storage();
+ 
+let selectedFile = null;
+let currentStep = 1;
+ 
+const $ = (sel) => document.querySelector(sel);
+ 
+function showToast(msg){
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2600);
+}
+ 
+/* ---------- progresso / navegação entre etapas ---------- */
+function goToStep(step){
+  document.querySelectorAll('.step').forEach(s => s.classList.toggle('active', Number(s.dataset.step) === step));
+  currentStep = step;
+  $('#prog1').style.width = step >= 1 ? '100%' : '0%';
+  $('#prog2').style.width = step >= 2 ? '100%' : '0%';
+  if (step === 3) {
+    $('#progressBar').style.display = 'none';
+    updatePipeline(0);
+  }
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+ 
+function updatePipeline(activeIdx){
+  document.querySelectorAll('.p-step').forEach(el => {
+    const idx = Number(el.dataset.step);
+    el.classList.toggle('active', idx <= activeIdx);
+    el.classList.toggle('current', idx === activeIdx);
+  });
+}
+updatePipeline(-1);
+ 
+/* ---------- máscara de telefone ---------- */
+$('#tel').addEventListener('input', (e) => {
+  let v = e.target.value.replace(/\D/g,'').slice(0,11);
+  if (v.length > 10) v = v.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+  else if (v.length > 6) v = v.replace(/(\d{2})(\d{0,5})(\d{0,4})/, '($1) $2-$3').replace(/-$/,'');
+  else if (v.length > 2) v = v.replace(/(\d{2})(\d{0,5})/, '($1) $2');
+  else if (v.length > 0) v = v.replace(/(\d{0,2})/, '($1');
+  e.target.value = v;
+});
+ 
+/* ---------- validação ---------- */
+function setError(fieldId, hasError){
+  const f = document.getElementById(fieldId);
+  if (f) f.classList.toggle('error', hasError);
+}
+function validEmail(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+ 
+function validateStep1(){
+  let ok = true;
+  const nome = $('#nome').value.trim();
+  const email = $('#email').value.trim();
+  const tel = $('#tel').value.replace(/\D/g,'');
+ 
+  setError('f-nome', nome.length < 3); if (nome.length < 3) ok = false;
+  setError('f-email', !validEmail(email)); if (!validEmail(email)) ok = false;
+  setError('f-tel', tel.length < 10); if (tel.length < 10) ok = false;
+  return ok;
+}
+ 
+function validateStep2(){
+  let ok = true;
+  setError('f-curriculo', !selectedFile); if (!selectedFile) ok = false;
+  const lgpd = $('#lgpd').checked;
+  setError('f-lgpd', !lgpd); if (!lgpd) ok = false;
+  return ok;
+}
+ 
+$('#toStep2').addEventListener('click', () => { if (validateStep1()) goToStep(2); });
+$('#toStep1').addEventListener('click', () => goToStep(1));
+ 
+/* ---------- upload de currículo (drag & drop) ---------- */
+const dropZone = $('#dropZone'), fileInput = $('#fileInput'), fileChip = $('#fileChip');
+ 
+dropZone.addEventListener('click', () => fileInput.click());
+['dragover','dragenter'].forEach(ev => dropZone.addEventListener(ev, (e) => { e.preventDefault(); dropZone.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev => dropZone.addEventListener(ev, (e) => { e.preventDefault(); dropZone.classList.remove('drag'); }));
+dropZone.addEventListener('drop', (e) => { if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', (e) => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+ 
+function handleFile(file){
+  if (file.type !== 'application/pdf'){ showToast('Envie o currículo em formato PDF.'); return; }
+  if (file.size > TAMANHO_MAX_MB * 1024 * 1024){ showToast(`O arquivo deve ter até ${TAMANHO_MAX_MB}MB.`); return; }
+  selectedFile = file;
+  $('#fname').textContent = file.name;
+  $('#fsize').textContent = (file.size / 1024 / 1024).toFixed(1) + ' MB';
+  fileChip.classList.add('show');
+  dropZone.style.display = 'none';
+  setError('f-curriculo', false);
+}
+$('#removeFile').addEventListener('click', () => {
+  selectedFile = null;
+  fileInput.value = '';
+  fileChip.classList.remove('show');
+  dropZone.style.display = 'block';
+});
+
+async function getNextCid() {
+  const snap = await db.collection('candidatos')
+    .orderBy('id', 'desc')
+    .limit(1)
+    .get();
+  if (snap.empty) return 'C001';
+  const last = snap.docs[0].data().id;
+  const num = parseInt(last.replace('C','')) + 1;
+  return 'C' + String(num).padStart(3, '0');
+}
+ 
+/* ---------- envio ---------- */
+$('#form-inscricao').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!validateStep1()){ goToStep(1); return; }
+  if (!validateStep2()) return;
+ 
+  // honeypot: se preenchido, é bot — finge sucesso e não grava nada
+  if ($('#hp').value.trim() !== ''){ goToStep(3); return; }
+ 
+  if (VAGA_PADRAO_ID === 'COLOQUE_AQUI_O_ID_DA_VAGA'){
+    showToast('Configuração pendente: defina VAGA_PADRAO_ID no código.');
+    return;
+  }
+ 
+  const btn = $('#submitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Enviando...';
+ 
+  try{
+    let curriculoUrl = null, curriculoNome = null;
+ 
+    if (selectedFile){
+      const path = `curriculos/${Date.now()}_${selectedFile.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+      const ref = storage.ref(path);
+      const task = ref.put(selectedFile);
+      $('#barWrap').classList.add('show');
+ 
+      await new Promise((resolve, reject) => {
+        task.on('state_changed',
+          (snap) => { $('#barFill').style.width = (snap.bytesTransferred / snap.totalBytes * 100) + '%'; },
+          reject,
+          resolve
+        );
+      });
+      curriculoUrl = await task.snapshot.ref.getDownloadURL();
+      curriculoNome = selectedFile.name;
+    }
+ 
+    const agora = new Date();
+    const novoCandidato = {
+      // --- campos no mesmo formato usado pelo painel de RH ---
+      vid: VAGA_PADRAO_ID,
+      origem: 'Outro',
+      origem_txt: 'Site de Inscrições',
+      data_cand: agora.toISOString().slice(0,10),
+      nome: $('#nome').value.trim(),
+      tel: $('#tel').value.replace(/\D/g,''),
+      email: $('#email').value.trim(),
+      obs: $('#mensagem').value.trim(),
+      etapa: 'Triagem',
+      posicao: null,
+      justificativa: null,
+      justificativa_outro: '',
+      envioReprovacao: false,
+      historico: [{ etapa: 'Triagem', data: agora.toISOString() }],
+      // --- campos extras (não usados pelo painel atual, mas ficam salvos) ---
+      cidade: $('#cidade').value.trim(),
+      cargoInteresse: $('#cargo').value.trim(),
+      linkedin: $('#linkedin').value.trim(),
+      curriculoUrl,
+      curriculoNome,
+      lgpdConsentimento: true,
+      lgpdData: agora.toISOString(),
+      criadoViaSiteInscricao: true
+    };
+ 
+    const newId = await getNextCid();
+    await db.collection('candidatos').doc(newId).set({
+      ...novoCandidato,
+      id: newId
+    });
+    goToStep(3);
+ 
+  } catch(err){
+    console.error(err);
+    showToast('Não foi possível enviar agora. Tente novamente em instantes.');
+    btn.disabled = false;
+    btn.innerHTML = 'Enviar inscrição';
+    $('#barWrap').classList.remove('show');
+    $('#barFill').style.width = '0%';
+  }
+});
+</script>
+</body>
+</html>
+ 
