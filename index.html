@@ -1835,6 +1835,56 @@ function toggleJustifCard(uid) {
 .at-subtab.active{background:#4f8ef7;border-color:#4f8ef7;color:#fff;box-shadow:0 4px 12px rgba(79,142,247,.22)}
 .at-subtab.active:hover{background:#3d7fe8;border-color:#3d7fe8;color:#fff}
 .at-request-button{flex-shrink:0}
+.at-header-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.at-change-modes{display:flex;gap:6px;background:var(--surf2);padding:4px;border-radius:10px;width:max-content;max-width:100%}
+.at-change-modes button{border:0;background:transparent;color:var(--tx2);padding:8px 12px;border-radius:8px;font:500 13px 'DM Sans',sans-serif;cursor:pointer}
+.at-change-modes button.active{background:var(--surf);color:var(--tx);box-shadow:0 2px 8px rgba(30,40,90,.12)}
+.at-change-modal{width:min(860px,calc(100vw - 48px));max-width:none;max-height:90vh;overflow:auto;padding:22px;border-radius:18px;background:var(--surf);color:var(--tx);box-shadow:0 18px 60px rgba(20,30,60,.24)}
+.at-change-modal .modal-hdr{margin-bottom:16px;padding-bottom:12px}
+.at-change-modal .modal-hdr h3{margin:0;font-size:18px;font-weight:600;color:var(--tx)}
+.at-change-modal .at-change-modes{width:100%;margin:2px 0 14px}
+.at-change-modal .hide{display:none!important}
+.at-change-modal .at-change-modes button{flex:1}
+.at-change-modal .at-change-modes button.active{background:#5b5bf0;color:#fff;box-shadow:0 2px 8px rgba(91,91,240,.24)}
+.at-change-help{font-size:12px;color:var(--tx3);margin:0 0 12px}
+.at-change-pickers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.at-change-picker label{display:block;margin-bottom:5px;font-size:12px;font-weight:600;color:var(--tx2)}
+.at-change-picker input,.at-change-modal textarea{width:100%;padding:10px 11px;border:1px solid var(--border);border-radius:10px;background:var(--surf);color:var(--tx);font:13px 'DM Sans',sans-serif}
+.at-change-picker input:focus,.at-change-modal textarea:focus{outline:none;border-color:#5b5bf0;box-shadow:0 0 0 3px rgba(91,91,240,.14)}
+.at-change-picker-list{max-height:210px;overflow:auto;border:1px solid var(--border);border-radius:12px;margin-top:6px}
+.at-change-option{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:9px 11px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px}
+.at-change-option:last-child{border-bottom:0}.at-change-option:hover{background:var(--surf2)}
+.at-change-option.selected{background:rgba(91,91,240,.12);box-shadow:inset 3px 0 0 #5b5bf0}
+.at-change-option span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.at-change-option em{font-style:normal;color:var(--tx3);font-size:11px}
+.at-change-picker-summary{min-height:18px;margin-top:6px;font-size:11px;color:var(--tx3)}
+.at-change-destination{margin-top:0}
+.at-change-notes{margin-top:18px}
+.at-change-notes label{display:block;margin-bottom:5px;font-size:12px;font-weight:600;color:var(--tx2)}
+.at-change-modal .modal-acts{justify-content:space-between}
+.at-change-card{border:1px solid var(--border);border-radius:12px;padding:14px;margin:12px 0;background:var(--surf2)}
+.at-change-card h4{font-size:14px;margin:0 0 10px}
+.at-change-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px 12px;align-items:center;font-size:13px}
+.at-change-grid>:nth-child(3n+1){color:var(--tx2)}.at-change-grid>:nth-child(3n+3){color:#5b5bf0;font-weight:600}
+.at-asset-readonly-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.at-asset-readonly-fields>div{min-width:0}
+.at-asset-readonly-fields label{font-size:12px;font-weight:600;color:var(--tx2);display:block;margin-bottom:4px}
+.at-asset-readonly-fields input,.at-asset-readonly-fields textarea,.at-asset-readonly-fields select{width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surf2);color:var(--tx);font:13px 'DM Sans',sans-serif;opacity:1;-webkit-text-fill-color:var(--tx)}
+.at-asset-readonly-fields input:disabled,.at-asset-readonly-fields textarea:disabled,.at-asset-readonly-fields select:disabled{opacity:1;cursor:default}
+.at-asset-readonly-fields [data-accent="id"]{border-bottom:3px solid #5b5bf0}
+.at-asset-readonly-fields [data-accent="tipo"]{border-bottom:3px solid #5b5bf0}
+.at-asset-readonly-fields [data-accent="colab"]{border-bottom:3px solid #5b5bf0}
+.at-asset-readonly-fields [data-accent="local"]{border-bottom:3px solid #5b5bf0}
+.at-asset-readonly-fields [data-accent="status"]{border-bottom:3px solid #5b5bf0}
+.at-asset-readonly-fields textarea{resize:vertical;min-height:64px}
+.at-asset-history{margin-top:18px}
+.at-asset-history h3{font-size:15px;margin:0 0 10px}
+.at-asset-history-list{max-height:260px;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:0 12px}
+.at-asset-history-entry{padding:10px 0;border-bottom:1px solid var(--border);font-size:13px}
+.at-asset-history-entry:last-child{border-bottom:0}
+.at-asset-history-entry .sub{margin-top:3px}
+@media(max-width:650px){.at-asset-readonly-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:430px){.at-asset-readonly-fields{grid-template-columns:1fr}}
 .at-planta-placeholder{min-height:1px}
 .at-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:18px}
 .at-kpi{position:relative;text-align:left;background:var(--surf);border:1px solid var(--border);border-radius:16px;padding:16px 16px 14px;cursor:pointer;font-family:inherit;color:var(--tx);transition:transform .15s,box-shadow .2s,border-color .15s;overflow:hidden}
@@ -1881,7 +1931,8 @@ function toggleJustifCard(uid) {
 .at-user{display:flex;align-items:center;gap:8px}
 .at-muted{color:var(--tx3)}
 @media(max-width:1100px){.at-grid{grid-template-columns:1fr!important}}
-@media(max-width:700px){.at-section-hdr{align-items:stretch;flex-direction:column}.at-request-button{align-self:flex-end}}
+@media(max-width:700px){.at-section-hdr{align-items:stretch;flex-direction:column}.at-header-actions{align-self:flex-end}.at-change-modes{width:100%}.at-change-modes button{flex:1}.at-change-grid{gap:6px;font-size:12px}}
+@media(max-width:620px){.at-change-modal{width:calc(100vw - 24px);padding:16px}.at-change-pickers{grid-template-columns:1fr}}
 `;
   document.head.appendChild(s);
 })();
@@ -2016,13 +2067,13 @@ function rativos() {
         <div style="display:flex;align-items:center;gap:10px"><h2>Controle de ativos</h2><span class="cnt">${ativos.length}</span></div>
         <div class="at-subtabs">${abasAtivos.map(([key, label]) => `<button class="at-subtab ${ativosSubTab === key ? 'active' : ''}" onclick="ativosSubTab='${key}';renderP()">${label}</button>`).join('')}</div>
       </div>
-      <button class="btn-add at-request-button" onclick="abrirSolicitacaoAtivo()"><i class="ti ti-plus"></i> Solicitar item</button>
+      <div class="at-header-actions"><button class="btn-add at-request-button" onclick="abrirSolicitacaoAtivo()"><i class="ti ti-plus"></i> Solicitar item</button><button class="btn-sec at-request-button" onclick="abrirSolicitacaoAlteracaoAtivo()"><i class="ti ti-arrows-exchange"></i> Trocar / Transferir</button></div>
     </div>`;
   const solicitacoesAtivosHtml = () => `
     <div class="card" style="margin-top:16px">
       <div class="card-title"><i class="ti ti-clipboard-list"></i> Solicitações de itens</div>
-      <div class="tbl-wrap"><table><thead><tr><th>Solicitante</th><th>Item solicitado</th><th>Qtd</th><th>Colaborador / local</th><th>Observações</th><th>Data</th><th>Status</th></tr></thead><tbody>
-      ${solicitacoesAtivos.length ? solicitacoesAtivos.map(s => `<tr data-request-id="${ec(s.id)}" onclick="abrirDetalhesSolicitacaoAtivo(this.dataset.requestId)" title="Ver detalhes da solicitação" style="cursor:pointer"><td>${ec(s.solicitanteNome || '—')}<div style="font-size:11px;color:var(--tx3)">${ec(s.solicitanteEmail || '')}</div></td><td><b>${ec(s.assetId || '—')}</b> · ${ec([s.tipo,s.marca,s.modelo].filter(Boolean).join(' · ') || '—')}</td><td>${ec(String(s.qtd || 1))}</td><td>${ec(s.colab || '—')}<div style="font-size:11px;color:var(--tx3)">${ec([s.local,s.pos].filter(Boolean).join(' · ') || '—')}</div></td><td>${ec(s.obs || '—')}</td><td>${s.criadoEm ? new Date(s.criadoEm).toLocaleString('pt-BR') : '—'}</td><td><span class="pill ${classeStatusSolicitacaoAtivo(s.status)}">${ec(s.status || 'Pendente')}</span>${s.revisorNome ? `<div style="font-size:11px;color:var(--tx3)">por ${ec(s.revisorNome)}</div>` : ''}</td></tr>`).join('') : '<tr><td colspan="7"><div class="empty">Nenhuma solicitação cadastrada.</div></td></tr>'}
+      <div class="tbl-wrap"><table><thead><tr><th>Solicitante</th><th>Tipo</th><th>Item / alteração</th><th>Qtd</th><th>Colaborador / mudança</th><th>Observações</th><th>Data</th><th>Status</th></tr></thead><tbody>
+      ${solicitacoesAtivos.length ? solicitacoesAtivos.map(s => { const alteracao = s.tipoSolicitacao === 'Alteração'; const changes = Array.isArray(s.alteracoes) ? s.alteracoes : []; const titulo = alteracao ? `${s.operacao || 'Alteração'} · ${changes.map(c => c.assetId).join(', ') || s.assetId || '—'}` : `${s.assetId || '—'} · ${[s.tipo,s.marca,s.modelo].filter(Boolean).join(' · ') || '—'}`; const resumo = alteracao ? changes.map(c => `${c.antes?.colab || 'Estoque'} → ${c.depois?.colab || 'Estoque'}`).join('; ') : `${s.colab || '—'} · ${[s.local,s.pos].filter(Boolean).join(' / ') || '—'}`; return `<tr data-request-id="${ec(s.id)}" onclick="abrirDetalhesSolicitacaoAtivo(this.dataset.requestId)" title="Ver detalhes da solicitação" style="cursor:pointer"><td>${ec(s.solicitanteNome || '—')}<div style="font-size:11px;color:var(--tx3)">${ec(s.solicitanteEmail || '')}</div></td><td><span class="pill ${alteracao ? 's-andamento' : 'e-contratado'}">${alteracao ? 'Alteração' : 'Novo item'}</span></td><td><b>${ec(titulo)}</b></td><td>${alteracao ? changes.length : ec(String(s.qtd || 1))}</td><td>${ec(resumo)}</td><td>${ec(s.obs || '—')}</td><td>${s.criadoEm ? new Date(s.criadoEm).toLocaleString('pt-BR') : '—'}</td><td><span class="pill ${classeStatusSolicitacaoAtivo(s.status)}">${ec(s.status || 'Pendente')}</span>${s.revisorNome ? `<div style="font-size:11px;color:var(--tx3)">por ${ec(s.revisorNome)}</div>` : ''}</td></tr>`; }).join('') : '<tr><td colspan="8"><div class="empty">Nenhuma solicitação cadastrada.</div></td></tr>'}
       </tbody></table></div>
     </div>`;
 
@@ -2123,19 +2174,20 @@ function rativos() {
   const temFiltro = chips.length > 0 || !!ativosBusca;
 
   const linhas = filtrados.length === 0
-    ? `<tr><td colspan="6"><div class="empty"><i class="ti ti-search-off" style="font-size:22px;display:block;margin-bottom:6px"></i>Nenhum ativo encontrado com esses filtros.</div></td></tr>`
+    ? `<tr><td colspan="7"><div class="empty"><i class="ti ti-search-off" style="font-size:22px;display:block;margin-bottom:6px"></i>Nenhum ativo encontrado com esses filtros.</div></td></tr>`
     : filtrados.map(a => {
+        const dataEntrega = a.dataEntrega || a.data_entrega || a.data || a.data_aquisicao || a.dataAquisicao || '';
+        const dataExibida = dataEntrega && !Number.isNaN(new Date(dataEntrega).getTime()) ? new Date(dataEntrega).toLocaleDateString('pt-BR') : '—';
         const colab = ativoCampo(a, 'colaborador');
-        const cs = corStatus(a.status);
-        return `<tr>
-        <td><span class="td-id" style="color:#4f8ef7">${ec(String(a.id))}</span></td>
-        <td class="td-texto" style="font-weight:500">${ec(String(a.tipo || ''))}</td>
-        <td style="text-align:center;font-family:'DM Mono',monospace">${ativoQtd(a)}</td>
-        <td class="td-texto">${colab
-          ? `<div class="at-user"><span class="avatar" style="width:24px;height:24px;border-radius:7px;font-size:10px;background:${avbg(colab)};color:${avtx(colab)}">${initials(colab)}</span>${ec(colab)}</div>`
-          : '<span class="at-muted">—</span>'}</td>
-        <td class="td-texto">${ec(String(a.local || '—'))}</td>
-        <td>${a.status ? `<span class="at-pill" style="background:color-mix(in srgb,${cs} 14%,transparent);color:color-mix(in srgb,${cs} 70%,#000)">${ec(String(a.status))}</span>` : '<span class="at-muted">—</span>'}</td>
+        const statusColor = corStatus(a.status);
+        return `<tr data-asset-id="${ec(String(a.id))}" onclick="abrirDetalhesAtivoRH(this.dataset.assetId)" title="Ver detalhes do ativo" style="cursor:pointer">
+        <td><span class="td-id" style="color:#4f8ef7">${ec(String(a.id || '—'))}</span></td>
+        <td class="td-texto" style="font-weight:500">${ec(String(a.tipo || '—'))}</td>
+        <td class="td-texto">${ec(String(a.marca || '—'))}</td>
+        <td class="td-texto">${ec(String(a.modelo || '—'))}</td>
+        <td>${ec(dataExibida)}</td>
+        <td class="td-texto">${colab ? `<div class="at-user"><span class="avatar" style="width:24px;height:24px;border-radius:7px;font-size:10px;background:${avbg(colab)};color:${avtx(colab)}">${initials(colab)}</span>${ec(colab)}</div>` : '<span class="at-muted">—</span>'}</td>
+        <td>${a.status ? `<span class="at-pill" style="background:color-mix(in srgb,${statusColor} 14%,transparent);color:color-mix(in srgb,${statusColor} 70%,#000)">${ec(String(a.status))}</span>` : '<span class="at-muted">—</span>'}</td>
       </tr>`;
       }).join('');
 
@@ -2163,12 +2215,35 @@ ${graficos}
   <div class="tbl-wrap tbl-scroll">
     <table>
       <thead><tr>
-        <th style="width:110px;cursor:pointer" onclick="ordenarAtivos('id')" title="Ordenar por ID">ID do ativo${indicadorOrdenacaoAtivo('id')}</th><th>Tipo de equipamento</th><th style="width:60px">Qtd</th><th style="cursor:pointer" onclick="ordenarAtivos('colaborador')" title="Ordenar por colaborador">Colaborador${indicadorOrdenacaoAtivo('colaborador')}</th><th>Localização</th><th style="width:140px;cursor:pointer" onclick="ordenarAtivos('status')" title="Ordenar por status">Status${indicadorOrdenacaoAtivo('status')}</th>
+        <th style="width:120px;cursor:pointer" onclick="ordenarAtivos('id')" title="Ordenar por ID">ID do Ativo${indicadorOrdenacaoAtivo('id')}</th><th>Tipo de Equipamento</th><th>Marca</th><th>Modelo</th><th>Data de entrega</th><th>Colaborador</th><th>Status</th>
       </tr></thead>
       <tbody>${linhas}</tbody>
     </table>
   </div>
 </div>`;
+}
+
+function abrirDetalhesAtivoRH(id) {
+  const ativo = ativos.find(item => String(item.id) === String(id));
+  if (!ativo) return;
+  const modal = document.getElementById('gmodal');
+  const val = value => value === null || value === undefined || value === '' ? '—' : String(value);
+  const field = (key,label,value,accent='') => `<div><label>${label}</label><input type="text" value="${ec(val(value))}" disabled ${accent ? `data-accent="${accent}"` : ''}></div>`;
+  const comments = Array.isArray(ativo.hist) ? ativo.hist : [];
+  const dateFormat = value => {
+    if (!value) return '—';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? ec(String(value)) : date.toLocaleString('pt-BR');
+  };
+  modal.style.display = 'flex';
+  modal.innerHTML = `<div class="modal-bg" onclick="if(event.target===this)document.getElementById('gmodal').style.display='none'"><div class="modal at-asset-details-modal" style="max-width:900px;width:min(900px,100%)"><div class="modal-hdr"><h3 style="margin:0">${ec(String(ativo.id || 'Ativo'))} · ${ec([ativo.marca,ativo.modelo].filter(Boolean).join(' ') || 'Detalhes do ativo')}</h3><button class="ibtn" onclick="document.getElementById('gmodal').style.display='none'"><i class="ti ti-x"></i></button></div>
+    <div class="at-asset-readonly-fields">
+      ${field('id','ID do Ativo (SN)',ativo.id,'id')}${field('tipo','Tipo de Equipamento',ativo.tipo,'tipo')}${field('marca','Marca',ativo.marca)}${field('modelo','Modelo',ativo.modelo)}${field('serie','n° de Série',ativo.serie)}${field('qtd','Qtd',ativo.qtd || 1)}
+      ${field('colab','Colaborador',ativo.colab || ativo.colaborador,'colab')}${field('empresa','Empresa Proprietária',ativo.empresa)}${field('local','Localização',ativo.local,'local')}${field('pos','Posição',ativo.pos)}${field('status','Status',ativo.status,'status')}${field('data','Data de Aquisição',ativo.data)}
+      ${field('nf','NF',ativo.nf)}${field('valor','Valor (R$)',ativo.valor)}${field('garantia','Garantia (até)',ativo.garantia)}${field('imei','Imei',ativo.imei)}<div style="grid-column:1/-1"><label>Observações</label><textarea disabled>${ec(val(ativo.obs))}</textarea></div>
+    </div>
+    <section class="at-asset-history"><h3>Comentários e histórico</h3><div class="at-asset-history-list">${comments.length ? comments.map(entry => `<div class="at-asset-history-entry">${entry.c ? '💬 ' : ''}${ec(String(entry.t || ''))}<div class="sub">${dateFormat(entry.d)} · ${ec(entry.autor || 'Responsável não registrado')}</div></div>`).join('') : '<div class="at-asset-history-entry at-muted">Nenhum comentário ou movimentação registrada.</div>'}</div></section>
+    <div class="modal-acts"><button class="btn-sec" onclick="document.getElementById('gmodal').style.display='none'">Fechar</button></div></div></div>`;
 }
 
 function abrirSolicitacaoAtivo() {
@@ -2191,12 +2266,92 @@ function abrirSolicitacaoAtivo() {
 function abrirDetalhesSolicitacaoAtivo(id) {
   const s = solicitacoesAtivos.find(item => item.id === id);
   if (!s) return;
+  if (s.tipoSolicitacao === 'Alteração') {
+    const modal = document.getElementById('gmodal');
+    modal.style.display = 'flex';
+    const campos = [['Colaborador','colab'],['Localização','local'],['Posição','pos'],['Status','status']];
+    const blocos = (s.alteracoes || []).map(c => `<div class="at-change-card"><h4>${ec(String(c.assetId || 'Ativo'))} · ${ec([c.item?.tipo,c.item?.marca,c.item?.modelo].filter(Boolean).join(' ') || '—')}</h4><div class="at-change-grid"><b>Campo</b><b>Como era</b><b>Como está</b>${campos.map(([label,key]) => `<span>${label}</span><span>${ec(String(c.antes?.[key] || '—'))}</span><strong>${ec(String(c.depois?.[key] || '—'))}</strong>`).join('')}</div></div>`).join('');
+    modal.innerHTML = `<div class="modal-bg"><div class="modal" style="max-width:900px"><div class="modal-hdr"><div><h3>Solicitação de alteração · ${ec(s.operacao || 'Transferência')}</h3><div style="font-size:12px;color:var(--tx3)">Solicitada por ${ec(s.solicitanteNome || '—')} · ${ec(s.solicitanteEmail || '')}</div></div><button class="ibtn" onclick="document.getElementById('gmodal').style.display='none'"><i class="ti ti-x"></i></button></div>${blocos || '<div class="empty">Detalhes da alteração não encontrados.</div>'}<div class="fg full"><label>Observações</label><textarea rows="2" disabled>${ec(s.obs || '—')}</textarea></div><div class="modal-acts"><span class="pill ${classeStatusSolicitacaoAtivo(s.status)}">${ec(s.status || 'Pendente')}</span><span style="margin-left:auto;margin-right:10px">${s.revisorNome ? `Revisado por ${ec(s.revisorNome)}` : ''}</span><button class="btn-sec" onclick="document.getElementById('gmodal').style.display='none'">Fechar</button></div></div></div>`;
+    return;
+  }
   const campo = (label, value) => `<div class="fg"><label>${label}</label><input value="${ec(String(value || '—'))}" disabled></div>`;
   const modal = document.getElementById('gmodal');
   modal.style.display = 'flex';
   modal.innerHTML = `<div class="modal-bg"><div class="modal" style="max-width:900px"><div class="modal-hdr"><div><h3>Solicitação · ${ec(s.assetId || 'Item')}</h3><div style="font-size:12px;color:var(--tx3)">Solicitado por ${ec(s.solicitanteNome || '—')} · ${ec(s.solicitanteEmail || '')}</div></div><button class="ibtn" onclick="document.getElementById('gmodal').style.display='none'"><i class="ti ti-x"></i></button></div>
     <div class="fgrid">${campo('ID do Ativo (SN)',s.assetId)}${campo('Tipo de Equipamento',s.tipo)}${campo('Marca',s.marca)}${campo('Modelo',s.modelo)}${campo('n° de Série',s.serie)}${campo('Qtd',s.qtd)}${campo('Colaborador',s.colab)}${campo('Empresa Proprietária',s.empresa)}${campo('Localização',s.local)}${campo('Posição',s.pos)}${campo('Status',s.statusItem)}${campo('Data de Aquisição',s.data)}${campo('NF',s.nf)}${campo('Valor (R$)',s.valor)}${campo('Garantia (até)',s.garantia)}${campo('Imei',s.imei)}<div class="fg full"><label>Observações</label><textarea rows="2" disabled>${ec(s.obs || s.justificativa || '')}</textarea></div></div>
     <div class="modal-acts"><span class="pill ${classeStatusSolicitacaoAtivo(s.status)}">${ec(s.status || 'Pendente')}</span><span style="margin-left:auto;margin-right:10px">${s.revisorNome ? `Revisado por ${ec(s.revisorNome)}` : ''}</span><button class="btn-sec" onclick="document.getElementById('gmodal').style.display='none'">Fechar</button></div></div></div>`;
+}
+
+let modoSolicitacaoAlteracaoAtivo = 'transferencia';
+let alteracoesAtivoPreview = [];
+let selecoesAlteracaoAtivo = { a:'', b:'', t:'' };
+function abrirSolicitacaoAlteracaoAtivo() {
+  const modal = document.getElementById('gmodal'); modal.style.display = 'flex';
+  modoSolicitacaoAlteracaoAtivo = 'troca'; alteracoesAtivoPreview = []; selecoesAlteracaoAtivo = { a:'', b:'', t:'' };
+  const colabs = ['<option>Estoque</option>', ...[...new Set([...Object.keys(posicoesColaboradoresAtivos || {}), ...ativos.map(a => a.colaborador || a.colab).filter(Boolean)])].sort((a,b)=>a.localeCompare(b,'pt-BR')).map(n=>`<option>${ec(n)}</option>`)].join('');
+  modal.innerHTML = `<div class="modal-bg"><div class="modal at-change-modal"><div class="modal-hdr"><h3>Troca e transferência</h3><button class="ibtn" onclick="document.getElementById('gmodal').style.display='none'"><i class="ti ti-x"></i></button></div><div class="at-change-modes"><button type="button" class="active" data-change-mode="troca" onclick="selecionarModoAlteracaoAtivo('troca')">⇄ Trocar entre colaboradores</button><button type="button" data-change-mode="transferencia" onclick="selecionarModoAlteracaoAtivo('transferencia')">→ Transferir item</button></div><div id="at-change-swap"><p class="at-change-help">Escolha dois itens: os colaboradores de cada um serão trocados entre si.</p><div class="at-change-pickers">${seletorAlteracaoAtivo('a','Item A')}${seletorAlteracaoAtivo('b','Item B')}</div><div class="at-change-picker-summary" id="at-change-swap-summary">Selecione os dois itens</div></div><div id="at-change-transfer" class="hide"><div class="at-change-pickers">${seletorAlteracaoAtivo('t','Item')}<div class="at-change-picker at-change-destination"><label for="at-change-dest">Novo colaborador ou Estoque</label><input id="at-change-dest" list="at-change-colabs" placeholder="Nome do colaborador ou Estoque" oninput="atualizarPreviewAlteracaoAtivo()"><datalist id="at-change-colabs">${colabs}</datalist></div></div></div><div class="at-change-notes"><label for="at-change-obs">Observações</label><textarea id="at-change-obs" rows="2" placeholder="Motivo ou detalhes da solicitação"></textarea></div><div class="modal-acts"><button class="btn-sec" onclick="document.getElementById('gmodal').style.display='none'">Cancelar</button><button class="btn-add" onclick="enviarSolicitacaoAlteracaoAtivo()">Enviar solicitação</button></div></div></div>`;
+  ['a','b','t'].forEach(atualizarListaAlteracaoAtivo);
+}
+function seletorAlteracaoAtivo(key,label) { return `<div class="at-change-picker"><label for="at-change-search-${key}">${label}</label><input id="at-change-search-${key}" data-change-search="${key}" placeholder="Buscar por ativo ou nome…" oninput="atualizarListaAlteracaoAtivo('${key}')"><div class="at-change-picker-list" id="at-change-list-${key}"></div><div class="at-change-picker-summary" id="at-change-summary-${key}">Nenhum item selecionado</div></div>`; }
+function selecionarModoAlteracaoAtivo(modo) {
+  modoSolicitacaoAlteracaoAtivo = modo;
+  document.querySelectorAll('[data-change-mode]').forEach(b => b.classList.toggle('active', b.dataset.changeMode === modo));
+  document.getElementById('at-change-swap').classList.toggle('hide', modo !== 'troca');
+  document.getElementById('at-change-transfer').classList.toggle('hide', modo !== 'transferencia');
+  atualizarPreviewAlteracaoAtivo();
+}
+function atualizarListaAlteracaoAtivo(key) {
+  const list = document.getElementById(`at-change-list-${key}`); if (!list) return;
+  const q = (document.getElementById(`at-change-search-${key}`)?.value || '').toLocaleLowerCase('pt-BR').trim();
+  const results = ativos.filter(a => !q || [a.id,a.colaborador,a.colab,a.tipo,a.marca,a.modelo,a.serie].join(' ').toLocaleLowerCase('pt-BR').includes(q));
+  list.innerHTML = results.slice(0,60).map(a => `<div class="at-change-option ${selecoesAlteracaoAtivo[key] === String(a.id) ? 'selected' : ''}" data-change-pick="${key}" data-asset-id="${ec(String(a.id))}"><b>${ec(String(a.id))}</b><span>${ec([a.tipo,a.marca,a.modelo].filter(Boolean).join(' ') || '—')}</span><em>${ec(a.colaborador || a.colab || '—')}</em></div>`).join('') || '<div class="at-change-picker-summary" style="padding:12px">Nenhum resultado</div>';
+  const picked = ativos.find(a => String(a.id) === selecoesAlteracaoAtivo[key]);
+  const summary = document.getElementById(`at-change-summary-${key}`);
+  if (summary) summary.innerHTML = picked ? `✓ <b>${ec(String(picked.id))}</b> — ${ec([picked.tipo,picked.marca,picked.modelo].filter(Boolean).join(' ') || '—')} · ${ec(picked.colaborador || picked.colab || 'sem colaborador')}` : 'Nenhum item selecionado';
+  list.onclick = event => { const option = event.target.closest('[data-change-pick]'); if (!option) return; selecoesAlteracaoAtivo[key] = option.dataset.assetId; atualizarListaAlteracaoAtivo(key); atualizarPreviewAlteracaoAtivo(); };
+}
+function prepararDestinoAlteracaoAtivo(nome, atual) {
+  const normalizar = value => String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+  if (!nome || normalizar(nome) === 'estoque') return { colab:'', local:'Estoque', pos:'-', status:'Disponível' };
+  const key = Object.keys(posicoesColaboradoresAtivos || {}).find(n => normalizar(n) === normalizar(nome));
+  const configured = key ? posicoesColaboradoresAtivos[key] : '';
+  const raw = configured && typeof configured === 'object' ? (configured.pos ?? configured.position ?? configured.mesa ?? '') : configured;
+  const linked = ativos.find(a => normalizar(a.colaborador ?? a.colab) === normalizar(nome) && a.pos && !['-','—'].includes(String(a.pos).trim()));
+  const rawPos = String(raw || linked?.pos || '').trim();
+  const match = rawPos.match(/^(?:mesa\s*)?(\d+)$/i);
+  const pos = match ? String(Number(match[1])) : (rawPos === '-' || rawPos === '—' ? '' : rawPos);
+  const current = ativos.find(a => normalizar(a.colaborador ?? a.colab) === normalizar(nome));
+  const local = pos ? 'Escritório' : (current?.local && normalizar(current.local) !== 'estoque' ? current.local : (atual?.local && normalizar(atual.local) !== 'estoque' ? atual.local : 'Remoto'));
+  return { colab:nome, local, pos:pos || '-', status:'Em uso' };
+}
+function atualizarPreviewAlteracaoAtivo() {
+  const getItem = id => ativos.find(a => String(a.id) === String(id || '').trim());
+  const snapshot = a => ({ colab:String(a.colaborador ?? a.colab ?? '').trim(), local:String(a.local || '').trim(), pos:String(a.pos || '').trim(), status:String(a.status || '').trim() });
+  const selected = [];
+  if (modoSolicitacaoAlteracaoAtivo === 'troca') {
+    const a = getItem(selecoesAlteracaoAtivo.a), b = getItem(selecoesAlteracaoAtivo.b);
+    if (a && b && b.id !== a.id) {
+      selected.push({ item:a, after:prepararDestinoAlteracaoAtivo(snapshot(b).colab,a) }, { item:b, after:prepararDestinoAlteracaoAtivo(snapshot(a).colab,b) });
+    }
+  } else {
+    const target = document.getElementById('at-change-dest')?.value.trim();
+    const transferItem = getItem(selecoesAlteracaoAtivo.t);
+    if (transferItem && target) selected.push({ item:transferItem, after:prepararDestinoAlteracaoAtivo(target,transferItem) });
+  }
+  alteracoesAtivoPreview = selected.map(({item,after}) => ({ assetId:String(item.id), item:{tipo:item.tipo||'',marca:item.marca||'',modelo:item.modelo||''}, antes:snapshot(item), depois:after }));
+  const swapSummary = document.getElementById('at-change-swap-summary');
+  if (swapSummary && modoSolicitacaoAlteracaoAtivo === 'troca') {
+    const a = getItem(selecoesAlteracaoAtivo.a), b = getItem(selecoesAlteracaoAtivo.b);
+    swapSummary.textContent = a && b ? (a.id === b.id ? 'Escolha dois itens diferentes' : `${a.colaborador || a.colab || '—'} ⇄ ${b.colaborador || b.colab || '—'}`) : 'Selecione os dois itens';
+  }
+}
+async function enviarSolicitacaoAlteracaoAtivo() {
+  if (!alteracoesAtivoPreview.length) return showToast('Selecione os itens e o destino da alteração.');
+  const operation = modoSolicitacaoAlteracaoAtivo === 'troca' ? 'Troca de colaboradores' : 'Transferência';
+  try {
+    await db.collection('solicitacoes_ativos').add({ tipoSolicitacao:'Alteração', operacao:operation, assetId:alteracoesAtivoPreview[0].assetId, alteracoes:alteracoesAtivoPreview, obs:document.getElementById('at-change-obs').value.trim(), solicitanteNome:getActorName(), solicitanteEmail:currentUser?.email || '', solicitanteUid:currentUser?.uid || '', status:'Pendente', criadoEm:new Date().toISOString() });
+    document.getElementById('gmodal').style.display='none'; ativosSubTab='solicitacoes'; showToast('Solicitação de alteração enviada.'); renderP();
+  } catch(error) { showToast('Não foi possível enviar a solicitação: ' + error.message); }
 }
 function classeStatusSolicitacaoAtivo(status) {
   return status === 'Aprovada' ? 'e-contratado' : status === 'Reprovada' ? 'e-reprovado' : 's-andamento';
