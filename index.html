@@ -884,7 +884,9 @@ textarea { resize: none; min-height: 70px; }
 :root[data-theme="dark"] .metric-label,
 :root[data-theme="dark"] .card-title,
 :root[data-theme="dark"] .legend-label,
-:root[data-theme="dark"] .activity-title { color: #c5cde0; }</style>
+:root[data-theme="dark"] .activity-title { color: #c5cde0; }
+
+</style>
 </head>
 <body>
 
@@ -970,6 +972,10 @@ let tempFsVagaList = [];   // array temporário usado no dropdown
 let fsStatusList = [];        // lista de status selecionados para o filtro de vagas (aba Vagas)
 let tempFsStatusList = [];
 let ativos = [];
+let solicitacoesAtivos = [];
+let ativosSubTab = 'itens';
+let solicitacoesAtivosUnsub = null;
+let posicoesColaboradoresAtivos = {};
 let ativosBusca = '';
 let ativosOrdenacao = { campo: '', direcao: 1 };
 let ativosFiltros = { tipo: [], colaborador: [], local: [] };
@@ -1220,12 +1226,18 @@ function parseCSVLine(line) {
 // ========== NAVEGAÇÃO ==========
 function nav(p) {
   page = p; eid = null; modal = null; modalCandVagaId = null; _preSelectedVid = null;
-  fv = ''; fs = ''; feList = []; fvc = ''; fsVagaList = []; fsStatusList = []; fMotivo = '';
+  fv = ''; fs = ''; feList = []; fvc = ''; fsVagaList = p === 'candidatos' ? ['Aberta', 'Em Andamento'] : []; fsStatusList = []; fMotivo = '';
   solicSubTab = 'criadas';
   vagaDash = '';
   document.querySelectorAll('.nav-btn').forEach((b, i) => b.classList.toggle('active', ['dashboard','vagas','candidatos','consolidado','ativos'][i] === p));
   render();
   if (p === 'ativos') {
+    if (!solicitacoesAtivosUnsub) {
+      solicitacoesAtivosUnsub = db.collection('solicitacoes_ativos').orderBy('criadoEm', 'desc').onSnapshot(snap => {
+        solicitacoesAtivos = snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+        if (page === 'ativos') renderP();
+      }, error => { console.error('Falha ao carregar solicitações de ativos', error); });
+    }
     window.assetsDb.from('ativos').select('*').order('id').then(({ data, error }) => {
       if (error) throw error;
       ativos = data || [];
@@ -1815,6 +1827,15 @@ function toggleJustifCard(uid) {
   s.id = 'ativos-style';
   s.textContent = `
 .at-hint{font-size:12px;color:var(--tx3);margin:-4px 0 14px;display:flex;align-items:center;gap:6px}
+.at-section-hdr{align-items:flex-end;gap:16px;margin-bottom:1rem}
+.at-section-left{display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+.at-subtabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.at-subtab{padding:8px 14px;border:1px solid var(--border);border-radius:9px;background:var(--surf);color:var(--tx2);font:500 13px 'DM Sans',sans-serif;cursor:pointer;transition:background .18s ease,color .18s ease,border-color .18s ease,transform .18s ease,box-shadow .18s ease}
+.at-subtab:hover{background:var(--surf2);color:var(--tx);border-color:#9bbaf0;transform:translateY(-1px);box-shadow:0 4px 12px rgba(79,142,247,.12)}
+.at-subtab.active{background:#4f8ef7;border-color:#4f8ef7;color:#fff;box-shadow:0 4px 12px rgba(79,142,247,.22)}
+.at-subtab.active:hover{background:#3d7fe8;border-color:#3d7fe8;color:#fff}
+.at-request-button{flex-shrink:0}
+.at-planta-placeholder{min-height:1px}
 .at-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:18px}
 .at-kpi{position:relative;text-align:left;background:var(--surf);border:1px solid var(--border);border-radius:16px;padding:16px 16px 14px;cursor:pointer;font-family:inherit;color:var(--tx);transition:transform .15s,box-shadow .2s,border-color .15s;overflow:hidden}
 .at-kpi:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(30,40,90,.09)}
@@ -1860,6 +1881,7 @@ function toggleJustifCard(uid) {
 .at-user{display:flex;align-items:center;gap:8px}
 .at-muted{color:var(--tx3)}
 @media(max-width:1100px){.at-grid{grid-template-columns:1fr!important}}
+@media(max-width:700px){.at-section-hdr{align-items:stretch;flex-direction:column}.at-request-button{align-self:flex-end}}
 `;
   document.head.appendChild(s);
 })();
@@ -1983,6 +2005,36 @@ function ativoPassaFiltros(a) {
 
 // ----- Tela -----
 function rativos() {
+  const abasAtivos = [
+    ['itens', 'Itens'],
+    ['planta', 'Planta do escritório'],
+    ['solicitacoes', 'Solicitações'],
+  ];
+  const cabecalhoAtivos = `
+    <div class="section-hdr at-section-hdr">
+      <div class="at-section-left">
+        <div style="display:flex;align-items:center;gap:10px"><h2>Controle de ativos</h2><span class="cnt">${ativos.length}</span></div>
+        <div class="at-subtabs">${abasAtivos.map(([key, label]) => `<button class="at-subtab ${ativosSubTab === key ? 'active' : ''}" onclick="ativosSubTab='${key}';renderP()">${label}</button>`).join('')}</div>
+      </div>
+      <button class="btn-add at-request-button" onclick="abrirSolicitacaoAtivo()"><i class="ti ti-plus"></i> Solicitar item</button>
+    </div>`;
+  const solicitacoesAtivosHtml = () => `
+    <div class="card" style="margin-top:16px">
+      <div class="card-title"><i class="ti ti-clipboard-list"></i> Solicitações de itens</div>
+      <div class="tbl-wrap"><table><thead><tr><th>Solicitante</th><th>Item solicitado</th><th>Qtd</th><th>Colaborador / local</th><th>Observações</th><th>Data</th><th>Status</th></tr></thead><tbody>
+      ${solicitacoesAtivos.length ? solicitacoesAtivos.map(s => `<tr data-request-id="${ec(s.id)}" onclick="abrirDetalhesSolicitacaoAtivo(this.dataset.requestId)" title="Ver detalhes da solicitação" style="cursor:pointer"><td>${ec(s.solicitanteNome || '—')}<div style="font-size:11px;color:var(--tx3)">${ec(s.solicitanteEmail || '')}</div></td><td><b>${ec(s.assetId || '—')}</b> · ${ec([s.tipo,s.marca,s.modelo].filter(Boolean).join(' · ') || '—')}</td><td>${ec(String(s.qtd || 1))}</td><td>${ec(s.colab || '—')}<div style="font-size:11px;color:var(--tx3)">${ec([s.local,s.pos].filter(Boolean).join(' · ') || '—')}</div></td><td>${ec(s.obs || '—')}</td><td>${s.criadoEm ? new Date(s.criadoEm).toLocaleString('pt-BR') : '—'}</td><td><span class="pill ${classeStatusSolicitacaoAtivo(s.status)}">${ec(s.status || 'Pendente')}</span>${s.revisorNome ? `<div style="font-size:11px;color:var(--tx3)">por ${ec(s.revisorNome)}</div>` : ''}</td></tr>`).join('') : '<tr><td colspan="7"><div class="empty">Nenhuma solicitação cadastrada.</div></td></tr>'}
+      </tbody></table></div>
+    </div>`;
+
+  if (ativosSubTab === 'solicitacoes') return `${cabecalhoAtivos}${solicitacoesAtivosHtml()}`;
+  if (ativosSubTab === 'planta') return `${cabecalhoAtivos}
+    <section class="rh-office-plant" id="rh-office-plant">
+      <div class="rh-pl-screen">
+        <div class="rh-pl-top"><input id="rh-pl-q" type="search" placeholder="Buscar colaborador ou mesa… (ex.: Ana, 20)" aria-label="Buscar colaborador ou mesa"><button class="btn-sec" id="rh-pl-clr" type="button">Limpar</button><span class="rh-pl-hint">Selecione uma mesa ou colaborador para consultar os itens.</span><button class="btn-sec rh-pl-expand" type="button" data-expand aria-haspopup="dialog" aria-expanded="false"><i class="ti ti-maximize"></i> Aumentar</button><button class="rh-pl-close" type="button" data-close aria-label="Fechar planta" title="Fechar"><i class="ti ti-x"></i></button></div>
+        <div class="rh-pl-kpis" id="rh-pl-kpis"></div>
+        <div class="rh-pl-wrap"><div class="rh-pl-card" id="rh-pl-map"></div><aside class="rh-pl-card" id="rh-pl-side"></aside></div>
+      </div>
+    </section>`;
   Object.keys(CAMPOS_ATIVOS).forEach(c => { ativosTemp[c] = [...ativosFiltros[c]]; });
 
   // Cards
@@ -2088,11 +2140,7 @@ function rativos() {
       }).join('');
 
   return `
-<div class="section-hdr" style="margin-bottom:.5rem">
-  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-    <h2>Controle de ativos</h2><span class="cnt">${ativos.length}</span>
-  </div>
-</div>
+${cabecalhoAtivos}
 <div class="at-hint"><i class="ti ti-click"></i> Clique nos cards e nos gráficos para filtrar a listagem abaixo.</div>
 
 <div class="at-kpis">${kpis}</div>
@@ -2121,6 +2169,78 @@ ${graficos}
     </table>
   </div>
 </div>`;
+}
+
+function abrirSolicitacaoAtivo() {
+  const modal = document.getElementById('gmodal');
+  modal.style.display = 'flex';
+  const nextRequestId = () => `SN${String(Math.max(0, ...ativos.map(a => Number(String(a.id || '').match(/\d+$/)?.[0] || 0))) + 1).padStart(3, '0')}`;
+  const input = (id, label, type = 'text', extra = '') => `<div class="fg"><label>${label}</label><input id="req-${id}" type="${type}" ${extra}></div>`;
+  const options = key => [...new Set(ativos.map(a => a[key]).filter(Boolean))].sort((a,b) => String(a).localeCompare(String(b),'pt-BR')).map(v => `<option>${ec(String(v))}</option>`).join('');
+  modal.innerHTML = `<div class="modal-bg"><div class="modal" style="max-width:900px"><div class="modal-hdr"><h3>Solicitar item</h3><button class="ibtn" onclick="document.getElementById('gmodal').style.display='none'"><i class="ti ti-x"></i></button></div>
+    <div class="fgrid" id="requestAssetForm">
+      ${input('assetId','ID do Ativo (SN)','text',`value="${nextRequestId()}"`)}${input('tipo','Tipo de Equipamento','text','list="req-tipos"')}${input('marca','Marca')}${input('modelo','Modelo')}${input('serie','n° de Série')}${input('qtd','Qtd','number','min="1" value="1"')}
+      ${input('colab','Colaborador','text','list="req-colabs" oninput="previewRHAssetRequestColab()" onchange="previewRHAssetRequestColab()"')}${input('empresa','Empresa Proprietária','text','list="req-empresas"')}${input('local','Localização','text','list="req-locais"')}${input('pos','Posição','text','list="req-posicoes"')}
+      <div class="fg"><label>Status</label><select id="req-status"><option value="">Selecione…</option><option>Em uso</option><option>Disponível</option><option>Indisponível</option><option>Descartado</option></select></div>
+      ${input('data','Data de Aquisição','date')}${input('nf','NF')}${input('valor','Valor (R$)','number','step="0.01"')}${input('garantia','Garantia (até)','date')}${input('imei','Imei')}
+      <div class="fg full"><label>Observações</label><textarea id="req-obs" rows="2"></textarea></div>
+    </div>
+    <datalist id="req-tipos">${options('tipo')}</datalist><datalist id="req-colabs">${options('colaborador').concat(options('colab'))}</datalist><datalist id="req-empresas">${options('empresa')}</datalist><datalist id="req-locais">${options('local')}</datalist><datalist id="req-posicoes">${options('pos')}</datalist>
+    <div class="modal-acts"><button class="btn-sec" onclick="document.getElementById('gmodal').style.display='none'">Cancelar</button><button class="btn-add" onclick="enviarSolicitacaoAtivo()">Enviar solicitação</button></div></div></div>`;
+}
+function abrirDetalhesSolicitacaoAtivo(id) {
+  const s = solicitacoesAtivos.find(item => item.id === id);
+  if (!s) return;
+  const campo = (label, value) => `<div class="fg"><label>${label}</label><input value="${ec(String(value || '—'))}" disabled></div>`;
+  const modal = document.getElementById('gmodal');
+  modal.style.display = 'flex';
+  modal.innerHTML = `<div class="modal-bg"><div class="modal" style="max-width:900px"><div class="modal-hdr"><div><h3>Solicitação · ${ec(s.assetId || 'Item')}</h3><div style="font-size:12px;color:var(--tx3)">Solicitado por ${ec(s.solicitanteNome || '—')} · ${ec(s.solicitanteEmail || '')}</div></div><button class="ibtn" onclick="document.getElementById('gmodal').style.display='none'"><i class="ti ti-x"></i></button></div>
+    <div class="fgrid">${campo('ID do Ativo (SN)',s.assetId)}${campo('Tipo de Equipamento',s.tipo)}${campo('Marca',s.marca)}${campo('Modelo',s.modelo)}${campo('n° de Série',s.serie)}${campo('Qtd',s.qtd)}${campo('Colaborador',s.colab)}${campo('Empresa Proprietária',s.empresa)}${campo('Localização',s.local)}${campo('Posição',s.pos)}${campo('Status',s.statusItem)}${campo('Data de Aquisição',s.data)}${campo('NF',s.nf)}${campo('Valor (R$)',s.valor)}${campo('Garantia (até)',s.garantia)}${campo('Imei',s.imei)}<div class="fg full"><label>Observações</label><textarea rows="2" disabled>${ec(s.obs || s.justificativa || '')}</textarea></div></div>
+    <div class="modal-acts"><span class="pill ${classeStatusSolicitacaoAtivo(s.status)}">${ec(s.status || 'Pendente')}</span><span style="margin-left:auto;margin-right:10px">${s.revisorNome ? `Revisado por ${ec(s.revisorNome)}` : ''}</span><button class="btn-sec" onclick="document.getElementById('gmodal').style.display='none'">Fechar</button></div></div></div>`;
+}
+function classeStatusSolicitacaoAtivo(status) {
+  return status === 'Aprovada' ? 'e-contratado' : status === 'Reprovada' ? 'e-reprovado' : 's-andamento';
+}
+function previewRHAssetRequestColab() {
+  const name = document.getElementById('req-colab').value.trim();
+  if (!name) return;
+  const normalize = value => String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+  const key = Object.keys(posicoesColaboradoresAtivos).find(n => normalize(n) === normalize(name));
+  const configured = key ? posicoesColaboradoresAtivos[key] : '';
+  const configuredValue = configured && typeof configured === 'object'
+    ? (configured.pos ?? configured.position ?? configured.mesa ?? '')
+    : configured;
+  const ativosDoColaborador = ativos.filter(a => normalize(a.colaborador ?? a.colab) === normalize(name));
+  const ativoColaborador = ativosDoColaborador.find(a => a.pos && !['-', '—'].includes(String(a.pos).trim()))
+    || ativosDoColaborador.find(a => normalize(a.local) === 'escritorio')
+    || ativosDoColaborador[0];
+  const rawPosition = String(configuredValue || ativoColaborador?.pos || '').trim();
+  const match = rawPosition.match(/^(?:mesa\s*)?(\d+)$/i);
+  const position = match ? String(Number(match[1])) : (rawPosition === '-' || rawPosition === '—' ? '' : rawPosition);
+  const localAtual = ativoColaborador?.local || document.getElementById('req-local').value;
+  const local = position ? 'Escritório' : (!localAtual || normalize(localAtual) === 'estoque' ? 'Remoto' : localAtual);
+  document.getElementById('req-local').value = local;
+  document.getElementById('req-pos').value = position || '-';
+  document.getElementById('req-status').value = 'Em uso';
+}
+async function enviarSolicitacaoAtivo() {
+  const field = id => document.getElementById(`req-${id}`).value.trim();
+  const assetId = field('assetId'), tipo = field('tipo'), qtd = Math.max(1, Number(field('qtd')) || 1);
+  if (!assetId || !tipo) return showToast('Preencha o ID do ativo e o tipo de equipamento.');
+  const email = currentUser?.email || '';
+  try {
+    await db.collection('solicitacoes_ativos').add({
+      assetId, tipo, marca: field('marca'), modelo: field('modelo'), serie: field('serie'), qtd,
+      colab: field('colab'), empresa: field('empresa'), local: field('local'), pos: field('pos'), statusItem: field('status'),
+      data: field('data'), nf: field('nf'), valor: Number(field('valor')) || 0, garantia: field('garantia'), imei: field('imei'), obs: field('obs'), justificativa: field('obs'),
+      solicitanteNome: getActorName(), solicitanteEmail: email, solicitanteUid: currentUser?.uid || '',
+      status: 'Pendente', criadoEm: new Date().toISOString(),
+    });
+    document.getElementById('gmodal').style.display = 'none';
+    ativosSubTab = 'solicitacoes';
+    showToast('Solicitação enviada.');
+    renderP();
+  } catch (error) { showToast('Não foi possível enviar a solicitação: ' + error.message); }
 }
 
 // ----- Dropdowns de filtro da listagem -----
@@ -4121,6 +4241,14 @@ async function initApp() {
         ativos = [];
         console.error('Falha ao carregar ativos do Supabase', e);
     }
+  try {
+    const { data: config, error } = await window.assetsDb.from('ativos_config').select('posicoes_colaboradores').eq('id', true).maybeSingle();
+    if (error) throw error;
+    posicoesColaboradoresAtivos = config?.posicoes_colaboradores && typeof config.posicoes_colaboradores === 'object' ? config.posicoes_colaboradores : {};
+  } catch (error) {
+    posicoesColaboradoresAtivos = {};
+    console.warn('Não foi possível carregar as posições dos colaboradores para solicitações.', error);
+  }
   const app = document.getElementById('app');
   const userName = USERS.find(u => u.email === currentUser.email)?.name || 'Usuário';
   
@@ -4219,6 +4347,7 @@ auth.onAuthStateChanged((user) => {
 
 </script>
 <script>
+  window.rhOfficePlantData = () => ({ ativos, positions: posicoesColaboradoresAtivos });
   document.addEventListener('change', (event) => {
     if (event.target?.id !== 'themeSw') return;
     const theme = event.target.checked ? 'dark' : 'light';
@@ -4227,5 +4356,7 @@ auth.onAuthStateChanged((user) => {
     try { localStorage.setItem('rh-theme', theme); } catch (e) {}
     if (currentUser) render();
   });
-</script></body>
+</script>
+<script src="planta-ativos-rh.js"></script>
+</body>
 </html>
